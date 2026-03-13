@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { initializeApp } from "firebase/app";
-import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "firebase/auth";
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
 
 // ─── Firebase Config ──────────────────────────────────────
@@ -18,6 +18,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const googleProvider = new GoogleAuthProvider();
 
 // ─── Helpers ───────────────────────────────────────────────
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
@@ -1131,7 +1132,10 @@ function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, vi
 export default function BudgetPlanner() {
   const [data, setData] = useState(() => loadLocal() || defaultData());
   const [userId, setUserId] = useState(null);
+  const [userInfo, setUserInfo] = useState(null); // { name, email, photo }
+  const [authReady, setAuthReady] = useState(false);
   const [syncStatus, setSyncStatus] = useState("connecting"); // "connecting" | "synced" | "offline"
+  const [loginError, setLoginError] = useState(null);
   const skipNextSync = useRef(false);
   const [viewMonth, setViewMonth] = useState(getToday().month);
   const [viewYear, setViewYear] = useState(getToday().year);
@@ -1147,17 +1151,47 @@ export default function BudgetPlanner() {
 
   const balanceColor = (val) => val < 0 ? T.expense : val <= 500 ? T.warning : T.income;
 
-  // ─── Firebase Auth (Anonymous) ────────────────────────────
+  // ─── Firebase Auth (Google) ───────────────────────────────
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (user) => {
       if (user) {
         setUserId(user.uid);
+        setUserInfo({ name: user.displayName || "User", email: user.email, photo: user.photoURL });
       } else {
-        signInAnonymously(auth).catch(() => setSyncStatus("offline"));
+        setUserId(null);
+        setUserInfo(null);
+        setSyncStatus("connecting");
       }
+      setAuthReady(true);
     });
+    // Check for redirect result (mobile flow)
+    getRedirectResult(auth).catch(() => {});
     return unsub;
   }, []);
+
+  const handleLogin = async () => {
+    setLoginError(null);
+    try {
+      // Try popup first (works on desktop)
+      await signInWithPopup(auth, googleProvider);
+    } catch (err) {
+      if (err.code === "auth/popup-blocked" || err.code === "auth/popup-closed-by-user") {
+        // Fallback to redirect (works on mobile/iPad)
+        try { await signInWithRedirect(auth, googleProvider); } catch { setLoginError("Anmeldung fehlgeschlagen. Bitte versuche es erneut."); }
+      } else if (err.code === "auth/cancelled-popup-request") {
+        // User cancelled, do nothing
+      } else {
+        setLoginError("Anmeldung fehlgeschlagen: " + (err.message || "Unbekannter Fehler"));
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    setUserId(null);
+    setUserInfo(null);
+    setSyncStatus("connecting");
+  };
 
   // ─── Firestore Realtime Listener ──────────────────────────
   useEffect(() => {
@@ -1517,6 +1551,108 @@ export default function BudgetPlanner() {
     }
   };
 
+  // ─── Login Screen ──────────────────────────────────────────
+  if (authReady && !userId) {
+    return (
+      <div style={{
+        fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace",
+        background: T.bgGradient,
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 24,
+        position: "relative",
+        overflow: "hidden"
+      }}>
+        <style>{`
+          @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap');
+          * { box-sizing: border-box; }
+          body { margin: 0; background: ${T.bg}; }
+          @keyframes floatOrb1 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(30px,20px); } }
+          @keyframes floatOrb2 { 0%,100% { transform: translate(0,0); } 50% { transform: translate(-20px,30px); } }
+          @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        `}</style>
+
+        {isDark ? (
+          <>
+            <div style={{ position: "fixed", top: -100, right: -100, width: 300, height: 300, background: "radial-gradient(circle, rgba(123,97,255,0.08) 0%, transparent 70%)", pointerEvents: "none", animation: "floatOrb1 20s ease-in-out infinite" }}/>
+            <div style={{ position: "fixed", bottom: -100, left: -100, width: 300, height: 300, background: "radial-gradient(circle, rgba(0,232,123,0.05) 0%, transparent 70%)", pointerEvents: "none", animation: "floatOrb2 25s ease-in-out infinite" }}/>
+          </>
+        ) : (
+          <>
+            <div style={{ position: "fixed", top: -100, left: -80, width: 450, height: 450, background: "radial-gradient(circle, rgba(124,58,237,0.18) 0%, rgba(124,58,237,0.06) 45%, transparent 70%)", pointerEvents: "none", borderRadius: "50%", filter: "blur(40px)", animation: "floatOrb1 20s ease-in-out infinite" }}/>
+            <div style={{ position: "fixed", bottom: -80, right: -40, width: 420, height: 420, background: "radial-gradient(circle, rgba(6,182,212,0.15) 0%, rgba(6,182,212,0.05) 45%, transparent 70%)", pointerEvents: "none", borderRadius: "50%", filter: "blur(45px)", animation: "floatOrb2 22s ease-in-out infinite" }}/>
+          </>
+        )}
+
+        <div style={{
+          position: "relative", zIndex: 1,
+          background: T.glassCard, backdropFilter: T.glassBlur,
+          border: `1px solid ${T.glassBorder}`, boxShadow: T.glassShadow,
+          borderRadius: 24, padding: "40px 32px", maxWidth: 380, width: "100%",
+          textAlign: "center", animation: "slideUp .5s ease"
+        }}>
+          <div style={{ fontSize: 48, marginBottom: 16 }}>💰</div>
+          <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
+            <span style={{ color: T.titleGlow1, textShadow: isDark ? T.titleShadow1 : "none" }}>Budget</span>{" "}
+            <span style={{ color: T.titleGlow2, textShadow: isDark ? T.titleShadow2 : "none" }}>Planer</span>
+          </div>
+          <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 32 }}>Deine Finanzen im Blick – auf allen Geräten</div>
+
+          <button onClick={handleLogin} style={{
+            display: "flex", alignItems: "center", justifyContent: "center", gap: 12,
+            width: "100%", padding: "14px 20px",
+            background: isDark ? "rgba(255,255,255,0.08)" : "rgba(255,255,255,0.85)",
+            border: `1px solid ${isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.12)"}`,
+            borderRadius: 14, cursor: "pointer", fontSize: 15, fontWeight: 600,
+            color: T.textPrimary, transition: "all .2s",
+            boxShadow: isDark ? "0 4px 16px rgba(0,0,0,0.3)" : "0 2px 12px rgba(0,0,0,0.08)"
+          }}>
+            <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59A14.5 14.5 0 019.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.998 23.998 0 000 24c0 3.77.9 7.35 2.56 10.53l7.97-5.94z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.94C6.51 42.62 14.62 48 24 48z"/></svg>
+            Mit Google anmelden
+          </button>
+
+          {loginError && (
+            <div style={{ marginTop: 16, padding: "10px 14px", background: `${T.expense}15`, border: `1px solid ${T.expense}30`, borderRadius: 10, fontSize: 12, color: T.expense, lineHeight: 1.5 }}>
+              {loginError}
+            </div>
+          )}
+
+          <div style={{ marginTop: 24, fontSize: 11, color: T.textMuted, lineHeight: 1.6 }}>
+            Melde dich mit deinem Google-Konto an,<br/>um deine Daten auf allen Geräten zu synchronisieren.
+          </div>
+
+          <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} style={{
+            marginTop: 20, background: "none", border: "none", cursor: "pointer",
+            color: T.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 6,
+            margin: "20px auto 0"
+          }}>
+            <Icon name={isDark ? "sun" : "moon"} size={14} color={T.textMuted}/>
+            {isDark ? "Light Mode" : "Dark Mode"}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ─── Loading Screen ──────────────────────────────────────
+  if (!authReady) {
+    return (
+      <div style={{
+        fontFamily: "'JetBrains Mono', monospace", background: T.bgGradient,
+        minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", color: T.textMuted
+      }}>
+        <style>{`body { margin: 0; background: ${T.bg}; }`}</style>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ fontSize: 36, marginBottom: 12 }}>💰</div>
+          <div style={{ fontSize: 14 }}>Laden...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{
       fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace",
@@ -1620,6 +1756,15 @@ export default function BudgetPlanner() {
                 <span style={{ color: T.titleGlow2, textShadow: isDark ? T.titleShadow2 : "none" }}>Planer</span>
               </div>
               <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>Deine Finanzen im Blick</div>
+              {userInfo && (
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12, padding: "8px 0" }}>
+                  {userInfo.photo && <img src={userInfo.photo} alt="" style={{ width: 24, height: 24, borderRadius: "50%" }} referrerPolicy="no-referrer"/>}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, color: T.textPrimary, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userInfo.name}</div>
+                    <div style={{ fontSize: 10, color: T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userInfo.email}</div>
+                  </div>
+                </div>
+              )}
             </div>
             {menuItems.map(item => (
               <button key={item.id} onClick={() => navigate(item.id)} style={{
@@ -1630,6 +1775,18 @@ export default function BudgetPlanner() {
                 cursor: "pointer", transition: "all .15s", textAlign: "left"
               }}><Icon name={item.icon} size={18} color={page === item.id ? T.accent : T.textMuted}/>{item.label}</button>
             ))}
+            <div style={{ borderTop: `1px solid ${T.headerBorder}`, marginTop: 8, paddingTop: 8 }}>
+              <button onClick={() => { handleLogout(); setMenuOpen(false); }} style={{
+                display: "flex", alignItems: "center", gap: 14, width: "100%", padding: "13px 20px",
+                background: "transparent", border: "none", borderLeft: "3px solid transparent",
+                color: T.expense, fontSize: 14, fontWeight: 500, cursor: "pointer", textAlign: "left"
+              }}>
+                <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: "none", stroke: T.expense, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }}>
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                Abmelden
+              </button>
+            </div>
           </div>
         </div>
       )}
