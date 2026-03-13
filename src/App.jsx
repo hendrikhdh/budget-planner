@@ -1,0 +1,1683 @@
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { initializeApp } from "firebase/app";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
+
+// ─── Firebase Config ──────────────────────────────────────
+// WICHTIG: Ersetze diese Werte mit deiner eigenen Firebase-Konfiguration!
+// Siehe Anleitung Schritt 1.
+const firebaseConfig = {
+  apiKey: "AIzaSyDNscpBdHFmj9QSkS6UhwYsgQDCqiGlz4g",
+  authDomain: "budget-planner-pro-37aca.firebaseapp.com",
+  projectId: "budget-planner-pro-37aca",
+  storageBucket: "budget-planner-pro-37aca.firebasestorage.app",
+  messagingSenderId: "170846034818",
+  appId: "1:170846034818:web:3a04b89240bb1e3caa8d9b"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+// ─── Helpers ───────────────────────────────────────────────
+const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const fmt = (n) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
+const monthName = (m, y) => new Date(y, m).toLocaleString("de-DE", { month: "long", year: "numeric" });
+const getToday = () => { const d = new Date(); return { month: d.getMonth(), year: d.getFullYear(), day: d.getDate() }; };
+const pad = (n) => String(n).padStart(2, "0");
+const dateStr = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
+
+const CAT_COLORS = [
+  { name: "Cyan", hex: "#00f0ff" },
+  { name: "Magenta", hex: "#ff00e5" },
+  { name: "Grün", hex: "#00e87b" },
+  { name: "Orange", hex: "#ff6b35" },
+  { name: "Lila", hex: "#7b61ff" },
+  { name: "Gelb", hex: "#ffd60a" },
+  { name: "Rosa", hex: "#ff3860" },
+  { name: "Lime", hex: "#b0ff57" },
+  { name: "Blau", hex: "#4d8bff" },
+  { name: "Koralle", hex: "#ff9580" },
+];
+
+const DEFAULT_INCOME_CATS = [
+  { name: "Gehalt", emoji: "💰", color: "#00e87b" }, { name: "Freelance", emoji: "💻", color: "#00f0ff" },
+  { name: "Investitionen", emoji: "📈", color: "#7b61ff" }, { name: "Geschenke", emoji: "🎁", color: "#ff00e5" },
+  { name: "Sonstiges", emoji: "📦", color: "#ffd60a" }
+];
+const DEFAULT_EXPENSE_CATS = [
+  { name: "Miete", emoji: "🏠", color: "#ff3860" }, { name: "Lebensmittel", emoji: "🛒", color: "#ff6b35" },
+  { name: "Transport", emoji: "🚗", color: "#4d8bff" }, { name: "Unterhaltung", emoji: "🎮", color: "#7b61ff" },
+  { name: "Gesundheit", emoji: "💊", color: "#00e87b" }, { name: "Kleidung", emoji: "👕", color: "#ff00e5" },
+  { name: "Bildung", emoji: "📚", color: "#ffd60a" }, { name: "Abonnements", emoji: "📱", color: "#00f0ff" },
+  { name: "Restaurant", emoji: "🍽️", color: "#ff9580" }, { name: "Sonstiges", emoji: "📦", color: "#b0ff57" }
+];
+
+const catName = (c) => typeof c === "string" ? c : c.name;
+const catEmoji = (c) => typeof c === "string" ? "" : (c.emoji || "");
+const catColorVal = (c) => (typeof c === "string" ? CAT_COLORS[0].hex : c.color) || CAT_COLORS[0].hex;
+
+// ─── Theme System ─────────────────────────────────────────
+const themes = {
+  dark: {
+    income: "#00e87b",
+    incomeSoft: "#0cbe6a",
+    incomeGlow: "rgba(0,232,123,0.15)",
+    expense: "#ff2d55",
+    expenseSoft: "#e0264a",
+    expenseGlow: "rgba(255,45,85,0.15)",
+    accent: "#7b61ff",
+    accentPink: "#ff00e5",
+    bg: "#0d0d1a",
+    bgGradient: "linear-gradient(135deg, #0d0d1a 0%, #111128 50%, #0d0d1a 100%)",
+    card: "rgba(255,255,255,0.03)",
+    cardBorder: "rgba(255,255,255,0.06)",
+    cardHover: "rgba(255,255,255,0.06)",
+    textPrimary: "#ffffff",
+    textSecondary: "#aaaaaa",
+    textMuted: "#666666",
+    warning: "#ffd60a",
+    headerBg: "rgba(13,13,26,0.95)",
+    headerBorder: "rgba(255,255,255,0.06)",
+    menuBg: "#111125",
+    menuBorder: "rgba(123,97,255,0.15)",
+    modalBg: "#151528",
+    modalOverlay: "rgba(0,0,0,0.6)",
+    inputBg: "#1a1a35",
+    inputBorder: "rgba(255,255,255,0.1)",
+    inputText: "#ffffff",
+    chipInactiveBg: "rgba(255,255,255,0.06)",
+    chipInactiveText: "#aaaaaa",
+    titleGlow1: "#c4b5ff",
+    titleShadow1: "0 0 7px rgba(123,97,255,0.9), 0 0 20px rgba(123,97,255,0.6), 0 0 40px rgba(123,97,255,0.4), 0 0 60px rgba(0,240,255,0.2)",
+    titleGlow2: "#a0f0ff",
+    titleShadow2: "0 0 7px rgba(0,240,255,0.9), 0 0 20px rgba(0,240,255,0.6), 0 0 40px rgba(0,240,255,0.4), 0 0 60px rgba(123,97,255,0.2)",
+    scrollThumb: "rgba(123,97,255,0.3)",
+    donutCenter: "#0d0d1a",
+    chartText: "#ffffff",
+    chartTextMuted: "#888888",
+    gridLine: "rgba(255,255,255,0.05)",
+    tableRow: "rgba(255,255,255,0.04)",
+    exportBg: "#0d0d1a",
+    exportText: "#00f0ff",
+    // Glassmorphism is subtle in dark mode
+    glassCard: "rgba(255,255,255,0.03)",
+    glassBorder: "rgba(255,255,255,0.06)",
+    glassBlur: "blur(12px)",
+    glassShadow: "0 8px 32px rgba(0,0,0,0.3)",
+  },
+  light: {
+    income: "#059669",
+    incomeSoft: "#10b981",
+    incomeGlow: "rgba(5,150,105,0.12)",
+    expense: "#e11d48",
+    expenseSoft: "#f43f5e",
+    expenseGlow: "rgba(225,29,72,0.1)",
+    accent: "#7c3aed",
+    accentPink: "#c026d3",
+    bg: "#f0f2ff",
+    bgGradient: "linear-gradient(140deg, #e0e7ff 0%, #ede4ff 22%, #fce4ec 42%, #fff3e0 58%, #e0f7fa 78%, #e8eaf6 100%)",
+    card: "rgba(255,255,255,0.5)",
+    cardBorder: "rgba(255,255,255,0.7)",
+    cardHover: "rgba(255,255,255,0.65)",
+    textPrimary: "#1e1b4b",
+    textSecondary: "#4b5563",
+    textMuted: "#9ca3af",
+    warning: "#d97706",
+    headerBg: "rgba(255,255,255,0.55)",
+    headerBorder: "rgba(255,255,255,0.75)",
+    menuBg: "rgba(255,255,255,0.8)",
+    menuBorder: "rgba(124,58,237,0.1)",
+    modalBg: "rgba(255,255,255,0.85)",
+    modalOverlay: "rgba(30,27,75,0.25)",
+    inputBg: "rgba(255,255,255,0.65)",
+    inputBorder: "rgba(124,58,237,0.12)",
+    inputText: "#1e1b4b",
+    chipInactiveBg: "rgba(124,58,237,0.06)",
+    chipInactiveText: "#6b7280",
+    titleGlow1: "#7c3aed",
+    titleShadow1: "0 1px 10px rgba(124,58,237,0.2)",
+    titleGlow2: "#c026d3",
+    titleShadow2: "0 1px 10px rgba(192,38,211,0.2)",
+    scrollThumb: "rgba(124,58,237,0.2)",
+    donutCenter: "rgba(255,255,255,0.9)",
+    chartText: "#1e1b4b",
+    chartTextMuted: "#9ca3af",
+    gridLine: "rgba(124,58,237,0.06)",
+    tableRow: "rgba(124,58,237,0.03)",
+    exportBg: "rgba(255,255,255,0.75)",
+    exportText: "#7c3aed",
+    // Glassmorphism — bright frosted glass
+    glassCard: "rgba(255,255,255,0.42)",
+    glassBorder: "rgba(255,255,255,0.65)",
+    glassBlur: "blur(22px)",
+    glassShadow: "0 8px 32px rgba(100,80,160,0.07), 0 2px 8px rgba(100,80,160,0.04)",
+  }
+};
+
+// ─── Storage (Firebase Firestore) ─────────────────────────
+// Lokaler Fallback für den Zeitraum bis Firebase geladen hat
+const STORAGE_KEY = "budget-planner-data";
+const loadLocal = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+};
+const saveLocal = (d) => {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {}
+};
+const emptyData = () => ({
+  entries: [], recurring: [],
+  categories: { income: [], expense: [] },
+  savingsGoals: [], appliedRecurring: {}
+});
+const defaultData = () => ({
+  entries: [
+    { id: "t01", type: "income", category: "Gehalt", amount: 3200, description: "Monatsgehalt", date: "2026-01-02" },
+    { id: "t02", type: "income", category: "Freelance", amount: 450, description: "Webdesign-Projekt", date: "2026-01-10" },
+    { id: "t03", type: "expense", category: "Miete", amount: 850, description: "Miete Januar", date: "2026-01-01" },
+    { id: "t04", type: "expense", category: "Lebensmittel", amount: 312, description: "Wocheneinkäufe", date: "2026-01-05" },
+    { id: "t05", type: "expense", category: "Transport", amount: 89, description: "Monatsticket VRR", date: "2026-01-03" },
+    { id: "t06", type: "expense", category: "Abonnements", amount: 45.97, description: "Netflix + Spotify + iCloud", date: "2026-01-01" },
+    { id: "t07", type: "expense", category: "Restaurant", amount: 78, description: "Abendessen Altstadt", date: "2026-01-17" },
+    { id: "t08", type: "expense", category: "Kleidung", amount: 129, description: "Winterjacke Sale", date: "2026-01-12" },
+    { id: "t09", type: "expense", category: "Gesundheit", amount: 35, description: "Apotheke", date: "2026-01-20" },
+    { id: "t10", type: "expense", category: "Unterhaltung", amount: 60, description: "Konzertkarten", date: "2026-01-25" },
+    { id: "t11", type: "expense", category: "Bildung", amount: 24.99, description: "Udemy Kurs", date: "2026-01-15" },
+    { id: "t12", type: "income", category: "Gehalt", amount: 3200, description: "Monatsgehalt", date: "2026-02-02" },
+    { id: "t13", type: "income", category: "Investitionen", amount: 120, description: "Dividende ETF", date: "2026-02-15" },
+    { id: "t14", type: "income", category: "Geschenke", amount: 50, description: "Geburtstagsgeld", date: "2026-02-22" },
+    { id: "t15", type: "expense", category: "Miete", amount: 850, description: "Miete Februar", date: "2026-02-01" },
+    { id: "t16", type: "expense", category: "Lebensmittel", amount: 287, description: "Wocheneinkäufe", date: "2026-02-06" },
+    { id: "t17", type: "expense", category: "Transport", amount: 89, description: "Monatsticket VRR", date: "2026-02-02" },
+    { id: "t18", type: "expense", category: "Abonnements", amount: 45.97, description: "Netflix + Spotify + iCloud", date: "2026-02-01" },
+    { id: "t19", type: "expense", category: "Restaurant", amount: 145, description: "Valentinstag Dinner", date: "2026-02-14" },
+    { id: "t20", type: "expense", category: "Unterhaltung", amount: 42, description: "Kino + Popcorn", date: "2026-02-08" },
+    { id: "t21", type: "expense", category: "Gesundheit", amount: 90, description: "Zahnarzt Zuzahlung", date: "2026-02-18" },
+    { id: "t22", type: "expense", category: "Sonstiges", amount: 65, description: "Geschenk Valentinstag", date: "2026-02-13" },
+    { id: "t23", type: "expense", category: "Lebensmittel", amount: 58, description: "Asiamarkt", date: "2026-02-20" },
+    { id: "t24", type: "income", category: "Gehalt", amount: 3200, description: "Monatsgehalt", date: "2026-03-02" },
+    { id: "t25", type: "income", category: "Freelance", amount: 800, description: "Logo-Design Auftrag", date: "2026-03-08" },
+    { id: "t26", type: "income", category: "Sonstiges", amount: 35, description: "Kleinanzeigen Verkauf", date: "2026-03-05" },
+    { id: "t27", type: "expense", category: "Miete", amount: 850, description: "Miete März", date: "2026-03-01" },
+    { id: "t28", type: "expense", category: "Lebensmittel", amount: 295, description: "Wocheneinkäufe", date: "2026-03-04" },
+    { id: "t29", type: "expense", category: "Transport", amount: 89, description: "Monatsticket VRR", date: "2026-03-02" },
+    { id: "t30", type: "expense", category: "Abonnements", amount: 45.97, description: "Netflix + Spotify + iCloud", date: "2026-03-01" },
+    { id: "t31", type: "expense", category: "Restaurant", amount: 52, description: "Brunch mit Freunden", date: "2026-03-09" },
+    { id: "t32", type: "expense", category: "Bildung", amount: 39.99, description: "Fachbuch TypeScript", date: "2026-03-06" },
+    { id: "t33", type: "expense", category: "Lebensmittel", amount: 47, description: "Wochenmarkt Carlsplatz", date: "2026-03-11" },
+    { id: "t34", type: "expense", category: "Unterhaltung", amount: 35, description: "Bowling-Abend", date: "2026-03-07" },
+    { id: "t35", type: "expense", category: "Kleidung", amount: 79, description: "Sneakers", date: "2026-03-10" },
+  ],
+  recurring: [
+    { id: "r01", type: "expense", category: "Miete", amount: 850, description: "Miete", startMonth: 0, startYear: 2026, cycle: 1 },
+    { id: "r02", type: "expense", category: "Abonnements", amount: 45.97, description: "Streaming-Abos", startMonth: 0, startYear: 2026, cycle: 1 },
+    { id: "r03", type: "income", category: "Gehalt", amount: 3200, description: "Monatsgehalt", startMonth: 0, startYear: 2026, cycle: 1 },
+  ],
+  categories: { income: [...DEFAULT_INCOME_CATS], expense: [...DEFAULT_EXPENSE_CATS] },
+  savingsGoals: [
+    { id: "sg1", name: "Urlaub Japan", target: 3000, saved: 1250, emoji: "✈️" },
+    { id: "sg2", name: "Notgroschen", target: 5000, saved: 3800, emoji: "🛡️" },
+    { id: "sg3", name: "Neues MacBook", target: 2000, saved: 620, emoji: "💻" },
+  ],
+  appliedRecurring: {}
+});
+
+// ─── Icons ────────────────────────────────────────────────
+const Icon = ({ name, size = 20, color = "currentColor" }) => {
+  const s = { width: size, height: size, fill: "none", stroke: color, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" };
+  const p = {
+    menu: <><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></>,
+    plus: <><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></>,
+    left: <polyline points="15 18 9 12 15 6"/>,
+    right: <polyline points="9 18 15 12 9 6"/>,
+    x: <><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></>,
+    home: <><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></>,
+    trendUp: <><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></>,
+    trendDown: <><polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/></>,
+    tag: <><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></>,
+    repeat: <><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></>,
+    calendar: <><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></>,
+    download: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></>,
+    upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></>,
+    target: <><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></>,
+    trash: <><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></>,
+    edit: <><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></>,
+    sun: <><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></>,
+    moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
+    zap: <><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>,
+    info: <><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>,
+  };
+  return <svg viewBox="0 0 24 24" style={s}>{p[name]}</svg>;
+};
+
+// ─── Donut ────────────────────────────────────────────────
+const fmtWhole = (n) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
+
+const DonutChart = ({ data, size = 200, T }) => {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (total === 0) return <div style={{ width: size, height: size, display: "flex", alignItems: "center", justifyContent: "center", color: T.textMuted, fontSize: 14 }}>Keine Daten</div>;
+  let cum = 0;
+  const r = size / 2 - 10, cx = size / 2, cy = size / 2;
+  const slices = data.filter(d => d.value > 0).map((d) => {
+    const pct = d.value / total;
+    const sa = cum * 2 * Math.PI - Math.PI / 2;
+    cum += pct;
+    const ea = cum * 2 * Math.PI - Math.PI / 2;
+    const midAngle = (sa + ea) / 2;
+    return { ...d, pct, sa, ea, midAngle };
+  });
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+      {slices.map((d, i) => {
+        const lg = d.pct > 0.5 ? 1 : 0;
+        const x1 = cx + r * Math.cos(d.sa), y1 = cy + r * Math.sin(d.sa);
+        const x2 = cx + r * Math.cos(d.ea), y2 = cy + r * Math.sin(d.ea);
+        if (d.pct >= 0.999) return <circle key={i} cx={cx} cy={cy} r={r} fill="none" stroke={d.color} strokeWidth={28}/>;
+        return <path key={i} d={`M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${lg} 1 ${x2} ${y2} Z`} fill={d.color} opacity={0.85}/>;
+      })}
+      {slices.filter(d => d.pct >= 0.10).map((d, i) => {
+        const labelR = r * 0.78;
+        const lx = cx + labelR * Math.cos(d.midAngle);
+        const ly = cy + labelR * Math.sin(d.midAngle);
+        return <text key={`p${i}`} x={lx} y={ly} textAnchor="middle" dominantBaseline="central" fill="#fff" fontSize={10} fontWeight="700" style={{ textShadow: "0 1px 3px rgba(0,0,0,0.7)" }}>{Math.round(d.pct * 100)}%</text>;
+      })}
+      <circle cx={cx} cy={cy} r={r * 0.55} fill={T.donutCenter}/>
+      <text x={cx} y={cy - 6} textAnchor="middle" fill={T.chartText} fontSize={16} fontWeight="700">{fmtWhole(total)}</text>
+      <text x={cx} y={cy + 14} textAnchor="middle" fill={T.chartTextMuted} fontSize={11}>Gesamt</text>
+    </svg>
+  );
+};
+
+// ─── Line Chart ───────────────────────────────────────────
+const fmtShort = (n) => n >= 1000 ? (n / 1000).toFixed(1).replace('.0', '') + 'k' : Math.round(n).toString();
+
+const LineChart = ({ points, color = "#00f0ff", height = 240, T }) => {
+  const w = 500, h = 200, padX = 30, padTop = 28, padBot = 30;
+  const chartH = h - padTop - padBot;
+  if (points.length < 2) return <div style={{ height, display: "flex", alignItems: "center", justifyContent: "center", color: T.textMuted, fontSize: 13 }}>Nicht genug Daten</div>;
+  const maxV = Math.max(...points.map(p => p.v), 1);
+  const coords = points.map((p, i) => ({
+    x: padX + (i / (points.length - 1)) * (w - padX * 2),
+    y: padTop + chartH - (p.v / maxV) * chartH
+  }));
+  const pathD = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`).join(" ");
+  const areaD = pathD + ` L ${coords[coords.length - 1].x} ${padTop + chartH} L ${coords[0].x} ${padTop + chartH} Z`;
+  const gid = `lg-${color.replace("#", "")}-${Math.random().toString(36).slice(2, 6)}`;
+  return (
+    <div style={{ width: "100%" }}>
+      <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height, display: "block" }} preserveAspectRatio="xMidYMid meet">
+        <defs><linearGradient id={gid} x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={color} stopOpacity={0.25}/><stop offset="100%" stopColor={color} stopOpacity={0}/></linearGradient></defs>
+        {[0, 0.25, 0.5, 0.75, 1].map((f, i) => {
+          const gy = padTop + chartH - f * chartH;
+          return <line key={i} x1={padX} y1={gy} x2={w - padX} y2={gy} stroke={T.gridLine} strokeWidth={0.5}/>;
+        })}
+        <path d={areaD} fill={`url(#${gid})`}/>
+        <path d={pathD} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round"/>
+        {coords.map((c, i) => <circle key={i} cx={c.x} cy={c.y} r={4} fill={color} stroke={T.donutCenter} strokeWidth={1.5}/>)}
+        {coords.map((c, i) => points[i].v > 0 && <text key={`v${i}`} x={c.x} y={c.y - 10} textAnchor="middle" fill={T.chartText} fontSize={11} fontWeight="700">{fmtShort(points[i].v)}</text>)}
+        {coords.map((c, i) => <text key={`t${i}`} x={c.x} y={h - 6} textAnchor="middle" fill={T.chartTextMuted} fontSize={10} fontWeight="500">{points[i].label}</text>)}
+      </svg>
+    </div>
+  );
+};
+
+// ─── Bar Chart ────────────────────────────────────────────
+const BarChart = ({ data, height = 220, T }) => {
+  const maxV = Math.max(...data.map(d => Math.max(d.income, d.expense)), 1);
+  return (
+    <div style={{ width: "100%", overflowX: "auto" }}>
+      <svg viewBox={`0 0 400 ${height + 30}`} style={{ width: "100%", minWidth: 350, height: height + 30 }}>
+        {data.map((d, i) => {
+          const bw = 12, gap = 400 / 12, x = gap * i + gap / 2 - bw;
+          const hI = (d.income / maxV) * height, hE = (d.expense / maxV) * height;
+          return (
+            <g key={i}>
+              <rect x={x} y={height - hI} width={bw} height={hI} fill={T.income} opacity={0.7} rx={3}/>
+              <rect x={x + bw + 2} y={height - hE} width={bw} height={hE} fill={T.expense} opacity={0.7} rx={3}/>
+              <text x={x + bw} y={height + 16} textAnchor="middle" fill={T.chartTextMuted} fontSize={10}>{d.label}</text>
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ display: "flex", gap: 16, justifyContent: "center", marginTop: 4 }}>
+        <span style={{ fontSize: 12, color: T.income }}>● Einnahmen</span>
+        <span style={{ fontSize: 12, color: T.expense }}>● Ausgaben</span>
+      </div>
+    </div>
+  );
+};
+
+// ─── Modal ────────────────────────────────────────────────
+const Modal = ({ open, onClose, title, children, T }) => {
+  if (!open) return null;
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
+      <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(8px)" }}/>
+      <div onClick={e => e.stopPropagation()} style={{
+        position: "relative", width: "100%", maxWidth: 480, maxHeight: "85vh", background: T.modalBg,
+        backdropFilter: T.glassBlur,
+        borderRadius: "20px 20px 0 0", padding: "20px 20px 32px", overflowY: "auto",
+        border: `1px solid ${T.glassBorder}`, boxShadow: T.glassShadow,
+        animation: "slideUp .3s ease"
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 style={{ margin: 0, color: T.textPrimary, fontSize: 18, fontWeight: 700 }}>{title}</h3>
+          <button onClick={onClose} style={{ background: "none", border: "none", cursor: "pointer", color: T.textMuted, padding: 4 }}><Icon name="x" size={22}/></button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+};
+
+// ─── Entry Item ───────────────────────────────────────────
+const EntryItem = ({ e, onClick, emojiLookup, colorLookup, T }) => {
+  const emoji = emojiLookup ? emojiLookup(e.category, e.type) : "";
+  const dotColor = colorLookup ? colorLookup(e.category, e.type) : CAT_COLORS[0].hex;
+  return (
+    <div onClick={onClick} style={{
+      background: T.glassCard, backdropFilter: T.glassBlur, borderRadius: 12, marginBottom: 6,
+      border: `1px solid ${T.glassBorder}`, boxShadow: T.glassShadow,
+      display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", cursor: "pointer",
+      transition: "all .15s"
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <span style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, flexShrink: 0, boxShadow: `0 0 6px ${dotColor}50` }}/>
+        {emoji && <span style={{ fontSize: 18 }}>{emoji}</span>}
+        <div>
+          <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600 }}>{e.description || e.category}</div>
+          <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{e.category} · {new Date(e.date).toLocaleDateString("de-DE")}</div>
+        </div>
+      </div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: e.type === "income" ? T.income : T.expense }}>
+        {e.type === "income" ? "+" : "−"}{fmt(e.amount)}
+      </div>
+    </div>
+  );
+};
+
+// ─── Month Nav ────────────────────────────────────────────
+const MonthNav = ({ viewMonth, viewYear, prevMonth, nextMonth, goToday, T, btnSecondary }) => (
+  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, margin: "16px 0" }}>
+    <button onClick={prevMonth} style={{ ...btnSecondary, padding: "8px", borderRadius: "50%", display: "flex" }}><Icon name="left" size={18}/></button>
+    <span style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary, minWidth: 160, textAlign: "center" }}>{monthName(viewMonth, viewYear)}</span>
+    <button onClick={nextMonth} style={{ ...btnSecondary, padding: "8px", borderRadius: "50%", display: "flex" }}><Icon name="right" size={18}/></button>
+    <button onClick={goToday} style={{ ...btnSecondary, padding: "6px 12px", fontSize: 11, fontWeight: 700 }}>Heute</button>
+  </div>
+);
+
+// ════════════════════════════════════════════════════════════
+//  PAGE COMPONENTS
+// ════════════════════════════════════════════════════════════
+
+function CategoriesPage({ data, setData, T, styles }) {
+  const { inputStyle, selectStyle, labelStyle, btnPrimary, btnSecondary, chipStyle, glassCardStyle } = styles;
+  const [newCat, setNewCat] = useState("");
+  const [newEmoji, setNewEmoji] = useState("");
+  const [newColor, setNewColor] = useState(CAT_COLORS[0].hex);
+  const [catType, setCatType] = useState("expense");
+  const [editIdx, setEditIdx] = useState(null);
+  const [editEmoji, setEditEmoji] = useState("");
+  const [colorPickerIdx, setColorPickerIdx] = useState(null);
+
+  const addCat = () => {
+    if (!newCat.trim()) return;
+    setData(prev => ({ ...prev, categories: { ...prev.categories, [catType]: [...prev.categories[catType], { name: newCat.trim(), emoji: newEmoji || "", color: newColor }] } }));
+    setNewCat(""); setNewEmoji(""); setNewColor(CAT_COLORS[0].hex);
+  };
+  const removeCat = (type, idx) => setData(prev => ({ ...prev, categories: { ...prev.categories, [type]: prev.categories[type].filter((_, i) => i !== idx) } }));
+  const updateEmoji = (type, idx, emoji) => {
+    setData(prev => {
+      const updated = [...prev.categories[type]];
+      updated[idx] = { ...updated[idx], name: catName(updated[idx]), emoji };
+      return { ...prev, categories: { ...prev.categories, [type]: updated } };
+    });
+    setEditIdx(null); setEditEmoji("");
+  };
+  const updateColor = (type, idx, color) => {
+    setData(prev => {
+      const updated = [...prev.categories[type]];
+      updated[idx] = { ...updated[idx], color };
+      return { ...prev, categories: { ...prev.categories, [type]: updated } };
+    });
+    setColorPickerIdx(null);
+  };
+  const cats = catType === "expense" ? data.categories.expense : data.categories.income;
+
+  const ColorDots = ({ selected, onSelect, size = 18 }) => (
+    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+      {CAT_COLORS.map(c => (
+        <button key={c.hex} onClick={() => onSelect(c.hex)} style={{
+          width: size, height: size, borderRadius: "50%", background: c.hex, border: selected === c.hex ? `2px solid ${T.textPrimary}` : "2px solid transparent",
+          cursor: "pointer", padding: 0, boxShadow: selected === c.hex ? `0 0 8px ${c.hex}` : "none", transition: "all .15s"
+        }} title={c.name}/>
+      ))}
+    </div>
+  );
+
+  return (
+    <div style={{ padding: "0 16px 100px" }}>
+      <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Kategorien</h2>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button onClick={() => { setCatType("expense"); setEditIdx(null); setColorPickerIdx(null); }} style={chipStyle(catType === "expense")}>Ausgaben</button>
+        <button onClick={() => { setCatType("income"); setEditIdx(null); setColorPickerIdx(null); }} style={chipStyle(catType === "income")}>Einnahmen</button>
+      </div>
+      <div style={{ ...glassCardStyle, padding: 14, marginBottom: 20, border: `1px solid ${T.accent}30` }}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <input value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder="😀" style={{ ...inputStyle, width: 48, textAlign: "center", fontSize: 20, padding: "6px" }}/>
+          <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => e.key === "Enter" && addCat()} placeholder="Neue Kategorie..." style={{ ...inputStyle, flex: 1 }}/>
+        </div>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 6 }}>Farbe wählen</div>
+          <ColorDots selected={newColor} onSelect={setNewColor}/>
+        </div>
+        <button onClick={addCat} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Neue Kategorie</button>
+      </div>
+      {cats.map((cat, i) => (
+        <div key={catName(cat) + i}>
+          <div style={{ ...glassCardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", marginBottom: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span onClick={() => setColorPickerIdx(colorPickerIdx === i ? null : i)}
+                style={{ width: 14, height: 14, borderRadius: "50%", background: catColorVal(cat), cursor: "pointer", border: `2px solid ${T.textMuted}40`, flexShrink: 0, transition: "box-shadow .15s", boxShadow: `0 0 6px ${catColorVal(cat)}40` }}
+                title="Farbe ändern"/>
+              {editIdx === i ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input value={editEmoji} onChange={e => setEditEmoji(e.target.value)} style={{ ...inputStyle, width: 42, textAlign: "center", fontSize: 18, padding: "4px" }} autoFocus/>
+                  <button onClick={() => updateEmoji(catType, i, editEmoji)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}><Icon name="plus" size={16} color={T.income}/></button>
+                  <button onClick={() => setEditIdx(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}><Icon name="x" size={16} color={T.textMuted}/></button>
+                </div>
+              ) : (
+                <span onClick={() => { setEditIdx(i); setEditEmoji(catEmoji(cat)); setColorPickerIdx(null); }} style={{ cursor: "pointer", fontSize: 18, minWidth: 24, textAlign: "center" }} title="Emoji bearbeiten">
+                  {catEmoji(cat) || "·"}
+                </span>
+              )}
+              <span style={{ color: T.textPrimary, fontSize: 14 }}>{catName(cat)}</span>
+            </div>
+            <button onClick={() => removeCat(catType, i)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><Icon name="trash" size={16} color={T.expense}/></button>
+          </div>
+          {colorPickerIdx === i && (
+            <div style={{ background: T.glassCard, backdropFilter: T.glassBlur, borderRadius: 10, padding: "10px 14px", marginBottom: 6, marginTop: -2, border: `1px solid ${T.glassBorder}` }}>
+              <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 6 }}>Farbe für „{catName(cat)}"</div>
+              <ColorDots selected={catColorVal(cat)} onSelect={(hex) => updateColor(catType, i, hex)} size={22}/>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function RecurringPage({ data, setData, T, styles }) {
+  const { inputStyle, selectStyle, labelStyle, btnPrimary, btnSecondary, chipStyle, glassCardStyle } = styles;
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const emptyForm = { type: "expense", category: "", amount: "", description: "", startMonth: String(getToday().month), startYear: String(getToday().year), cycle: "1" };
+  const [form, setForm] = useState(emptyForm);
+  const catsByType = (t) => t === "income" ? data.categories.income : data.categories.expense;
+
+  const openNew = () => {
+    setEditId(null);
+    setForm(emptyForm);
+    setShowForm(true);
+  };
+
+  const openEdit = (r) => {
+    setEditId(r.id);
+    setForm({ type: r.type, category: r.category, amount: String(r.amount), description: r.description, startMonth: String(r.startMonth), startYear: String(r.startYear), cycle: String(r.cycle) });
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditId(null);
+    setForm(emptyForm);
+  };
+
+  const saveRecurring = () => {
+    if (!form.amount || !form.category) return;
+    const parsed = { ...form, amount: parseFloat(form.amount), startMonth: parseInt(form.startMonth), startYear: parseInt(form.startYear), cycle: parseInt(form.cycle) };
+    if (editId) {
+      setData(prev => ({ ...prev, recurring: prev.recurring.map(r => r.id === editId ? { ...r, ...parsed } : r) }));
+    } else {
+      setData(prev => ({ ...prev, recurring: [...prev.recurring, { ...parsed, id: uid() }] }));
+    }
+    closeForm();
+  };
+
+  const deleteRecurring = (id) => {
+    setData(prev => ({ ...prev, recurring: prev.recurring.filter(r => r.id !== id) }));
+    if (editId === id) closeForm();
+  };
+
+  const cycles = [{ v: "1", l: "Monatlich" }, { v: "2", l: "Alle 2 Monate" }, { v: "3", l: "Vierteljährlich" }, { v: "6", l: "Halbjährlich" }, { v: "12", l: "Jährlich" }];
+  const months = Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: new Date(2024, i).toLocaleString("de-DE", { month: "long" }) }));
+  return (
+    <div style={{ padding: "0 16px 100px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, margin: 0 }}>Wiederkehrend</h2>
+        <button onClick={openNew} style={{ ...btnPrimary, width: "auto", padding: "8px 16px", fontSize: 13 }}>+ Neu</button>
+      </div>
+      {data.recurring.length === 0 && !showForm && <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Keine wiederkehrenden Einträge</div>}
+      {showForm && (
+        <div style={{ ...glassCardStyle, padding: 16, marginBottom: 20, border: `1px solid ${T.accent}30` }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>{editId ? "Eintrag bearbeiten" : "Neuer Eintrag"}</div>
+          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+            <button onClick={() => setForm(f => ({ ...f, type: "expense", category: "" }))} style={chipStyle(form.type === "expense")}>Ausgabe</button>
+            <button onClick={() => setForm(f => ({ ...f, type: "income", category: "" }))} style={chipStyle(form.type === "income")}>Einnahme</button>
+          </div>
+          <label style={labelStyle}>Kategorie</label>
+          <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={selectStyle}>
+            <option value="">Wählen...</option>
+            {catsByType(form.type).map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
+          </select>
+          <label style={labelStyle}>Betrag (€)</label>
+          <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={inputStyle} placeholder="0.00"/>
+          <label style={labelStyle}>Beschreibung</label>
+          <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} style={inputStyle} placeholder="z.B. Netflix Abo"/>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ flex: 1 }}><label style={labelStyle}>Startmonat</label>
+              <select value={form.startMonth} onChange={e => setForm(f => ({ ...f, startMonth: e.target.value }))} style={selectStyle}>
+                {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
+              </select></div>
+            <div style={{ flex: 1 }}><label style={labelStyle}>Startjahr</label>
+              <input type="number" value={form.startYear} onChange={e => setForm(f => ({ ...f, startYear: e.target.value }))} style={inputStyle}/></div>
+          </div>
+          <label style={labelStyle}>Zyklus</label>
+          <select value={form.cycle} onChange={e => setForm(f => ({ ...f, cycle: e.target.value }))} style={selectStyle}>
+            {cycles.map(c => <option key={c.v} value={c.v}>{c.l}</option>)}
+          </select>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button onClick={saveRecurring} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
+            {editId && <button onClick={() => deleteRecurring(editId)} style={{ ...btnSecondary, flex: "0 0 auto", color: T.expense, borderColor: `${T.expense}40` }}>Löschen</button>}
+            <button onClick={closeForm} style={{ ...btnSecondary, flex: "0 0 auto" }}>Abbrechen</button>
+          </div>
+        </div>
+      )}
+      {data.recurring.map(r => {
+        const cn = { 1: "Monatlich", 2: "Alle 2 Mo.", 3: "Vierteljährlich", 6: "Halbjährlich", 12: "Jährlich" }[r.cycle] || `Alle ${r.cycle} Mo.`;
+        const isEditing = editId === r.id && showForm;
+        return (
+          <div key={r.id} onClick={() => openEdit(r)} style={{ ...glassCardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", marginBottom: 6, cursor: "pointer", border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border, transition: "all .15s" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600 }}>{r.description || r.category}</div>
+                <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{r.category} · {cn} · ab {new Date(r.startYear, r.startMonth).toLocaleString("de-DE", { month: "short", year: "numeric" })}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: r.type === "income" ? T.income : T.expense }}>{fmt(r.amount)}</span>
+              <button onClick={(e) => { e.stopPropagation(); deleteRecurring(r.id); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><Icon name="trash" size={16} color={T.expense}/></button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function SavingsPage({ data, setData, T, styles }) {
+  const { inputStyle, labelStyle, btnPrimary, btnSecondary, glassCardStyle } = styles;
+  const [showForm, setShowForm] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const emptyForm = { name: "", target: "", saved: "0", emoji: "" };
+  const [form, setForm] = useState(emptyForm);
+
+  const openNew = () => {
+    setEditId(null);
+    setForm(emptyForm);
+    setShowForm(true);
+  };
+
+  const openEdit = (g) => {
+    setEditId(g.id);
+    setForm({ name: g.name, target: String(g.target), saved: String(g.saved), emoji: g.emoji || "" });
+    setShowForm(true);
+  };
+
+  const closeForm = () => {
+    setShowForm(false);
+    setEditId(null);
+    setForm(emptyForm);
+  };
+
+  const saveGoal = () => {
+    if (!form.name || !form.target) return;
+    if (editId) {
+      setData(prev => ({ ...prev, savingsGoals: prev.savingsGoals.map(g => g.id === editId ? { ...g, name: form.name, target: parseFloat(form.target), saved: parseFloat(form.saved) || 0, emoji: form.emoji } : g) }));
+    } else {
+      setData(prev => ({ ...prev, savingsGoals: [...prev.savingsGoals, { id: uid(), name: form.name, target: parseFloat(form.target), saved: parseFloat(form.saved) || 0, emoji: form.emoji }] }));
+    }
+    closeForm();
+  };
+
+  const deleteGoal = (id) => {
+    setData(prev => ({ ...prev, savingsGoals: prev.savingsGoals.filter(g => g.id !== id) }));
+    if (editId === id) closeForm();
+  };
+
+  return (
+    <div style={{ padding: "0 16px 100px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, margin: 0 }}>Sparziele</h2>
+        <button onClick={openNew} style={{ ...btnPrimary, width: "auto", padding: "8px 16px", fontSize: 13 }}>+ Neu</button>
+      </div>
+      {showForm && (
+        <div style={{ ...glassCardStyle, padding: 16, marginBottom: 20, border: `1px solid ${T.accent}30` }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>{editId ? "Sparziel bearbeiten" : "Neues Sparziel"}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <div>
+              <label style={labelStyle}>Emoji</label>
+              <input value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value }))} style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 22, padding: "6px" }} placeholder="🎯"/>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={labelStyle}>Name</label>
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={inputStyle} placeholder="z.B. Urlaub 2026"/>
+            </div>
+          </div>
+          <label style={labelStyle}>Zielbetrag (€)</label>
+          <input type="number" value={form.target} onChange={e => setForm(f => ({ ...f, target: e.target.value }))} style={inputStyle} placeholder="5000"/>
+          <label style={labelStyle}>Bereits gespart (€)</label>
+          <input type="number" value={form.saved} onChange={e => setForm(f => ({ ...f, saved: e.target.value }))} style={inputStyle} placeholder="0"/>
+          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+            <button onClick={saveGoal} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
+            {editId && <button onClick={() => deleteGoal(editId)} style={{ ...btnSecondary, flex: "0 0 auto", color: T.expense, borderColor: `${T.expense}40` }}>Löschen</button>}
+            <button onClick={closeForm} style={{ ...btnSecondary, flex: "0 0 auto" }}>Abbrechen</button>
+          </div>
+        </div>
+      )}
+      {data.savingsGoals.length === 0 && !showForm && <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Noch keine Sparziele</div>}
+      {data.savingsGoals.map(g => {
+        const pct = Math.min((g.saved / g.target) * 100, 100);
+        const isEditing = editId === g.id && showForm;
+        return (
+          <div key={g.id} onClick={() => openEdit(g)} style={{ ...glassCardStyle, padding: "16px 18px", marginBottom: 10, cursor: "pointer", border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border, transition: "all .15s" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ color: T.textPrimary, fontSize: 15, fontWeight: 700 }}>{g.emoji && <span style={{ marginRight: 6 }}>{g.emoji}</span>}{g.name}</span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textSecondary, marginBottom: 6 }}><span>{fmt(g.saved)} gespart</span><span>{pct.toFixed(0)}% von {fmt(g.target)}</span></div>
+            <div style={{ height: 8, background: `${T.textMuted}20`, borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${pct}%`, background: pct >= 100 ? T.income : `linear-gradient(90deg, ${T.accent}, #00f0ff)`, borderRadius: 4, transition: "width .5s" }}/>
+            </div>
+            {pct >= 100 && <div style={{ marginTop: 6, fontSize: 12, color: T.income, fontWeight: 600 }}>✓ Ziel erreicht!</div>}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Prediction Page ─────────────────────────────────────
+function PredictionPage({ data, T, styles }) {
+  const { glassCardStyle, btnSecondary, chipStyle } = styles;
+  const [showMethod, setShowMethod] = useState(null);
+
+  // ── Gather historical monthly data ──
+  const monthlyData = useMemo(() => {
+    const map = {};
+    data.entries.forEach(e => {
+      const d = new Date(e.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      if (!map[key]) map[key] = { year: d.getFullYear(), month: d.getMonth(), income: 0, expense: 0 };
+      if (e.type === "income") map[key].income += e.amount;
+      else map[key].expense += e.amount;
+    });
+    return Object.values(map).sort((a, b) => a.year - b.year || a.month - b.month);
+  }, [data.entries]);
+
+  const expenses = monthlyData.map(m => m.expense);
+  const incomes = monthlyData.map(m => m.income);
+
+  // ══════════════════════════════════════════════
+  //  ALGORITHMEN
+  // ══════════════════════════════════════════════
+
+  // 1) Gewichteter gleitender Durchschnitt (WMA)
+  //    Neuere Monate erhalten höheres Gewicht: w_i = i+1
+  const weightedMovingAvg = (arr, horizon = 6) => {
+    if (arr.length === 0) return Array(horizon).fill(0);
+    const n = Math.min(arr.length, 6);
+    const slice = arr.slice(-n);
+    let wSum = 0, wTotal = 0;
+    slice.forEach((v, i) => { const w = i + 1; wSum += v * w; wTotal += w; });
+    const avg = wSum / wTotal;
+    return Array(horizon).fill(Math.round(avg * 100) / 100);
+  };
+
+  // 2) Exponentielle Glättung (Holt's Double Exponential Smoothing)
+  //    Erfasst Level UND Trend
+  const holtSmoothing = (arr, horizon = 6, alpha = 0.4, beta = 0.2) => {
+    if (arr.length < 2) return weightedMovingAvg(arr, horizon);
+    let level = arr[0];
+    let trend = arr[1] - arr[0];
+    for (let i = 1; i < arr.length; i++) {
+      const newLevel = alpha * arr[i] + (1 - alpha) * (level + trend);
+      const newTrend = beta * (newLevel - level) + (1 - beta) * trend;
+      level = newLevel;
+      trend = newTrend;
+    }
+    const result = [];
+    for (let h = 1; h <= horizon; h++) {
+      result.push(Math.max(0, Math.round((level + trend * h) * 100) / 100));
+    }
+    return result;
+  };
+
+  // 3) Lineare Regression (Least Squares)
+  //    y = a + b*x → Trendlinie
+  const linearRegression = (arr, horizon = 6) => {
+    const n = arr.length;
+    if (n < 2) return weightedMovingAvg(arr, horizon);
+    let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    arr.forEach((y, x) => { sumX += x; sumY += y; sumXY += x * y; sumXX += x * x; });
+    const b = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+    const a = (sumY - b * sumX) / n;
+    const result = [];
+    for (let h = 0; h < horizon; h++) {
+      result.push(Math.max(0, Math.round((a + b * (n + h)) * 100) / 100));
+    }
+    return result;
+  };
+
+  // 4) Saisonale Dekomposition
+  //    Erkennt wiederkehrende Muster (z.B. Dez teurer als Feb)
+  const seasonalForecast = (arr, monthlyArr, horizon = 6) => {
+    if (arr.length < 3) return weightedMovingAvg(arr, horizon);
+    // Berechne Durchschnitt pro Kalendermonat
+    const monthBuckets = Array(12).fill(null).map(() => []);
+    monthlyArr.forEach(m => monthBuckets[m.month].push(m.expense));
+    const monthAvg = monthBuckets.map(b => b.length > 0 ? b.reduce((s, v) => s + v, 0) / b.length : 0);
+    const globalAvg = arr.reduce((s, v) => s + v, 0) / arr.length;
+    // Saisonale Indizes
+    const seasonIdx = monthAvg.map(a => globalAvg > 0 ? a / globalAvg : 1);
+    // Basis-Trend via Holt
+    const holtBase = holtSmoothing(arr, horizon, 0.3, 0.15);
+    // Letzter bekannter Monat
+    const lastEntry = monthlyArr[monthlyArr.length - 1];
+    const result = [];
+    for (let h = 0; h < horizon; h++) {
+      const futureMonth = (lastEntry.month + 1 + h) % 12;
+      const idx = seasonIdx[futureMonth] || 1;
+      result.push(Math.max(0, Math.round(holtBase[h] * idx * 100) / 100));
+    }
+    return result;
+  };
+
+  // 5) Ensemble: gewichtete Kombination aller Methoden
+  //    WMA 15%, Holt 30%, LinReg 20%, Saisonal 35%
+  const ensembleForecast = (arr, monthlyArr, horizon = 6) => {
+    const wma = weightedMovingAvg(arr, horizon);
+    const holt = holtSmoothing(arr, horizon);
+    const lr = linearRegression(arr, horizon);
+    const seasonal = seasonalForecast(arr, monthlyArr, horizon);
+    return Array(horizon).fill(0).map((_, i) =>
+      Math.max(0, Math.round((wma[i] * 0.15 + holt[i] * 0.3 + lr[i] * 0.2 + seasonal[i] * 0.35) * 100) / 100)
+    );
+  };
+
+  // ── Wiederkehrende Kosten als Basis ──
+  const recurringExpense = data.recurring.filter(r => r.type === "expense").reduce((s, r) => s + r.amount, 0);
+  const recurringIncome = data.recurring.filter(r => r.type === "income").reduce((s, r) => s + r.amount, 0);
+
+  // ── Prognosen berechnen ──
+  const HORIZON = 6;
+  const expEnsemble = ensembleForecast(expenses, monthlyData, HORIZON);
+  const incEnsemble = ensembleForecast(incomes, monthlyData.map(m => ({ ...m, expense: m.income })), HORIZON);
+
+  // Konfidenz-Bänder (±15% als einfache Annäherung, basierend auf historischer Varianz)
+  const variance = (arr) => {
+    if (arr.length < 2) return 0;
+    const mean = arr.reduce((s, v) => s + v, 0) / arr.length;
+    return Math.sqrt(arr.reduce((s, v) => s + (v - mean) ** 2, 0) / (arr.length - 1));
+  };
+  const expStd = variance(expenses);
+  const incStd = variance(incomes);
+
+  const lastEntry = monthlyData.length > 0 ? monthlyData[monthlyData.length - 1] : { month: getToday().month, year: getToday().year };
+
+  // Forecast-Monate Labels
+  const forecastLabels = Array(HORIZON).fill(0).map((_, i) => {
+    let m = lastEntry.month + 1 + i;
+    let y = lastEntry.year;
+    while (m > 11) { m -= 12; y++; }
+    return new Date(y, m).toLocaleString("de-DE", { month: "short", year: "2-digit" });
+  });
+
+  // ── Chart: Historical + Forecast ──
+  const ForecastChart = ({ historical, forecast, forecastHigh, forecastLow, color, label, height = 260 }) => {
+    const all = [...historical.slice(-8), ...forecast];
+    const w = 500, h = 220, padX = 30, padTop = 28, padBot = 30;
+    const chartH = h - padTop - padBot;
+    const maxV = Math.max(...all, ...forecastHigh, 1);
+    const totalPts = all.length;
+    const histCount = Math.min(historical.length, 8);
+    const histSlice = historical.slice(-8);
+
+    const histLabels = monthlyData.slice(-(histCount)).map(m =>
+      new Date(m.year, m.month).toLocaleString("de-DE", { month: "short" })
+    );
+    const allLabels = [...histLabels, ...forecastLabels];
+
+    const getX = (i) => padX + (i / (totalPts - 1)) * (w - padX * 2);
+    const getY = (v) => padTop + chartH - (v / maxV) * chartH;
+
+    const histCoords = histSlice.map((v, i) => ({ x: getX(i), y: getY(v) }));
+    const fcCoords = forecast.map((v, i) => ({ x: getX(histCount + i), y: getY(v) }));
+    const hiCoords = forecastHigh.map((v, i) => ({ x: getX(histCount + i), y: getY(v) }));
+    const loCoords = forecastLow.map((v, i) => ({ x: getX(histCount + i), y: getY(v) }));
+
+    const histPath = histCoords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`).join(" ");
+    const bridgePath = histCoords.length > 0 && fcCoords.length > 0
+      ? `M ${histCoords[histCoords.length - 1].x} ${histCoords[histCoords.length - 1].y} L ${fcCoords[0].x} ${fcCoords[0].y}`
+      : "";
+    const fcPath = fcCoords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x} ${c.y}`).join(" ");
+
+    // Confidence band area
+    const bandPath = hiCoords.length > 0
+      ? `M ${hiCoords[0].x} ${hiCoords[0].y} ` +
+        hiCoords.slice(1).map(c => `L ${c.x} ${c.y}`).join(" ") + " " +
+        loCoords.slice().reverse().map((c, i) => `${i === 0 ? "L" : "L"} ${c.x} ${c.y}`).join(" ") + " Z"
+      : "";
+
+    const gid = `fc-${color.replace("#", "")}-${Math.random().toString(36).slice(2, 6)}`;
+
+    return (
+      <div style={{ width: "100%" }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary, marginBottom: 8 }}>{label}</div>
+        <svg viewBox={`0 0 ${w} ${h}`} style={{ width: "100%", height, display: "block" }} preserveAspectRatio="xMidYMid meet">
+          {/* Grid */}
+          {[0, 0.25, 0.5, 0.75, 1].map((f, i) => {
+            const gy = padTop + chartH - f * chartH;
+            return <line key={i} x1={padX} y1={gy} x2={w - padX} y2={gy} stroke={T.gridLine} strokeWidth={0.5}/>;
+          })}
+          {/* Divider line between history and forecast */}
+          {histCoords.length > 0 && <line x1={histCoords[histCoords.length - 1].x + 6} y1={padTop} x2={histCoords[histCoords.length - 1].x + 6} y2={padTop + chartH} stroke={T.textMuted} strokeWidth={0.5} strokeDasharray="4 4"/>}
+          {/* Confidence band */}
+          {bandPath && <path d={bandPath} fill={color} opacity={0.08}/>}
+          {/* Historical line */}
+          <path d={histPath} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round"/>
+          {/* Bridge */}
+          {bridgePath && <path d={bridgePath} fill="none" stroke={color} strokeWidth={1.5} strokeDasharray="4 4" opacity={0.5}/>}
+          {/* Forecast line */}
+          <path d={fcPath} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeDasharray="6 3"/>
+          {/* Historical dots */}
+          {histCoords.map((c, i) => <circle key={`h${i}`} cx={c.x} cy={c.y} r={3.5} fill={color} stroke={T.donutCenter} strokeWidth={1.5}/>)}
+          {/* Forecast dots */}
+          {fcCoords.map((c, i) => <circle key={`f${i}`} cx={c.x} cy={c.y} r={4} fill={T.donutCenter} stroke={color} strokeWidth={2}/>)}
+          {/* Value labels */}
+          {fcCoords.map((c, i) => <text key={`fv${i}`} x={c.x} y={c.y - 10} textAnchor="middle" fill={color} fontSize={10} fontWeight="700">{fmtShort(forecast[i])}</text>)}
+          {/* X labels */}
+          {allLabels.map((l, i) => <text key={`l${i}`} x={getX(i)} y={h - 6} textAnchor="middle" fill={i >= histCount ? color : T.chartTextMuted} fontSize={9} fontWeight={i >= histCount ? "700" : "500"}>{l}</text>)}
+          {/* Legend labels */}
+          <text x={padX} y={14} fill={T.chartTextMuted} fontSize={9}>Historisch</text>
+          <text x={w - padX} y={14} textAnchor="end" fill={color} fontSize={9} fontWeight="600">Prognose →</text>
+        </svg>
+      </div>
+    );
+  };
+
+  // Confidence bands
+  const expHigh = expEnsemble.map(v => Math.round((v + expStd * 0.8) * 100) / 100);
+  const expLow = expEnsemble.map(v => Math.max(0, Math.round((v - expStd * 0.8) * 100) / 100));
+  const incHigh = incEnsemble.map(v => Math.round((v + incStd * 0.6) * 100) / 100);
+  const incLow = incEnsemble.map(v => Math.max(0, Math.round((v - incStd * 0.6) * 100) / 100));
+
+  // Einzelmethoden zum Vergleich
+  const methods = [
+    { key: "wma", name: "Gewichteter Ø", desc: "Neuere Monate zählen stärker. Einfach, stabil, reagiert langsam auf Trendwechsel.", exp: expenses, fn: weightedMovingAvg },
+    { key: "holt", name: "Holt-Smoothing", desc: "Erfasst Level + Trend durch exponentielle Glättung mit zwei Parametern (α, β). Reagiert dynamisch auf Veränderungen.", exp: expenses, fn: holtSmoothing },
+    { key: "lr", name: "Lineare Regression", desc: "Berechnet die Trendgerade (y = a + bx) per Least-Squares. Gut für konstante Trends, schlecht bei Richtungswechseln.", exp: expenses, fn: linearRegression },
+    { key: "seasonal", name: "Saisonale Dekomposition", desc: "Erkennt Muster pro Kalendermonat (z.B. Dezember = teuer). Kombiniert Saisonindizes mit Holt-Basis.", exp: expenses, fn: (arr) => seasonalForecast(arr, monthlyData, HORIZON) },
+  ];
+
+  // Prognose-Bilanz
+  const balanceForecast = expEnsemble.map((e, i) => incEnsemble[i] - e);
+
+  const dataAvailable = monthlyData.length >= 2;
+
+  return (
+    <div style={{ padding: "0 16px 100px" }}>
+      <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Prognose</h2>
+      <p style={{ color: T.textMuted, fontSize: 12, marginBottom: 20, lineHeight: 1.5 }}>
+        KI-gestützte Vorhersage deiner Finanzen für die nächsten {HORIZON} Monate
+      </p>
+
+      {!dataAvailable ? (
+        <div style={{ ...glassCardStyle, padding: 24, textAlign: "center" }}>
+          <div style={{ fontSize: 32, marginBottom: 10 }}>📊</div>
+          <div style={{ color: T.textPrimary, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Zu wenig Daten</div>
+          <div style={{ color: T.textMuted, fontSize: 13, lineHeight: 1.5 }}>Mindestens 2 Monate mit Einträgen werden benötigt, um eine Prognose zu erstellen.</div>
+        </div>
+      ) : (
+        <>
+          {/* Summary Cards */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+            {[
+              { l: "Ø Ausgaben", v: expEnsemble.reduce((s, v) => s + v, 0) / HORIZON, c: T.expense },
+              { l: "Ø Einnahmen", v: incEnsemble.reduce((s, v) => s + v, 0) / HORIZON, c: T.income },
+              { l: "Ø Bilanz", v: balanceForecast.reduce((s, v) => s + v, 0) / HORIZON, c: balanceForecast.reduce((s, v) => s + v, 0) / HORIZON >= 0 ? T.income : T.expense },
+            ].map(x => (
+              <div key={x.l} style={{ flex: "1 1 90px", ...glassCardStyle, padding: "12px 14px" }}>
+                <div style={{ fontSize: 10, color: T.textMuted, marginBottom: 3, textTransform: "uppercase", letterSpacing: 0.5 }}>{x.l}</div>
+                <div style={{ fontSize: 17, fontWeight: 800, color: x.c }}>{fmt(x.v)}</div>
+                <div style={{ fontSize: 10, color: T.textMuted, marginTop: 2 }}>/ Monat</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Recurring Basis Info */}
+          <div style={{ ...glassCardStyle, padding: "12px 16px", marginBottom: 16, display: "flex", alignItems: "center", gap: 10 }}>
+            <Icon name="repeat" size={16} color={T.accent}/>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 12, color: T.textSecondary }}>Feste monatliche Basis</div>
+              <div style={{ fontSize: 13, color: T.textPrimary, fontWeight: 600, marginTop: 2 }}>
+                <span style={{ color: T.income }}>+{fmt(recurringIncome)}</span>
+                {" "}·{" "}
+                <span style={{ color: T.expense }}>−{fmt(recurringExpense)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Expense Forecast Chart */}
+          <div style={{ ...glassCardStyle, padding: "16px 8px", marginBottom: 16 }}>
+            <ForecastChart historical={expenses} forecast={expEnsemble} forecastHigh={expHigh} forecastLow={expLow} color={T.expense} label="Ausgaben-Prognose" />
+          </div>
+
+          {/* Income Forecast Chart */}
+          <div style={{ ...glassCardStyle, padding: "16px 8px", marginBottom: 16 }}>
+            <ForecastChart historical={incomes} forecast={incEnsemble} forecastHigh={incHigh} forecastLow={incLow} color={T.income} label="Einnahmen-Prognose" />
+          </div>
+
+          {/* Balance Forecast Table */}
+          <div style={{ ...glassCardStyle, padding: 16, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary, marginBottom: 10 }}>Monatsübersicht Prognose</div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+              <thead><tr style={{ borderBottom: `1px solid ${T.textMuted}30` }}>
+                {["Monat", "Einnahmen", "Ausgaben", "Bilanz"].map(h => <th key={h} style={{ padding: "6px 4px", textAlign: "left", color: T.textMuted, fontWeight: 600, fontSize: 10, textTransform: "uppercase" }}>{h}</th>)}
+              </tr></thead>
+              <tbody>{forecastLabels.map((label, i) => (
+                <tr key={i} style={{ borderBottom: `1px solid ${T.tableRow}` }}>
+                  <td style={{ padding: "8px 4px", color: T.textPrimary, fontWeight: 600 }}>{label}</td>
+                  <td style={{ padding: "8px 4px", color: T.income }}>{fmt(incEnsemble[i])}</td>
+                  <td style={{ padding: "8px 4px", color: T.expense }}>{fmt(expEnsemble[i])}</td>
+                  <td style={{ padding: "8px 4px", color: balanceForecast[i] >= 0 ? T.income : T.expense, fontWeight: 700 }}>{fmt(balanceForecast[i])}</td>
+                </tr>
+              ))}</tbody>
+            </table>
+          </div>
+
+          {/* Method Comparison */}
+          <div style={{ ...glassCardStyle, padding: 16, marginBottom: 16 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary, marginBottom: 4 }}>Methodenvergleich (Ausgaben)</div>
+            <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 12, lineHeight: 1.4 }}>
+              Die Ensemble-Prognose oben kombiniert alle Methoden gewichtet. Hier siehst du jede einzeln:
+            </div>
+            {methods.map(m => {
+              const vals = m.key === "seasonal" ? m.fn(m.exp) : m.fn(m.exp, HORIZON);
+              const avg = vals.reduce((s, v) => s + v, 0) / vals.length;
+              return (
+                <div key={m.key} style={{ marginBottom: 8 }}>
+                  <div onClick={() => setShowMethod(showMethod === m.key ? null : m.key)} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 0", cursor: "pointer", borderBottom: `1px solid ${T.tableRow}` }}>
+                    <div>
+                      <div style={{ fontSize: 13, color: T.textPrimary, fontWeight: 600 }}>{m.name}</div>
+                      {showMethod === m.key && <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4, lineHeight: 1.4, maxWidth: 300 }}>{m.desc}</div>}
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: T.expense }}>Ø {fmt(avg)}</div>
+                      <div style={{ fontSize: 10, color: T.textMuted }}>/ Monat</div>
+                    </div>
+                  </div>
+                  {showMethod === m.key && (
+                    <div style={{ display: "flex", gap: 6, padding: "8px 0", overflowX: "auto" }}>
+                      {forecastLabels.map((l, i) => (
+                        <div key={i} style={{ flex: "0 0 auto", background: `${T.expense}10`, borderRadius: 8, padding: "6px 10px", textAlign: "center", minWidth: 60 }}>
+                          <div style={{ fontSize: 10, color: T.textMuted }}>{l}</div>
+                          <div style={{ fontSize: 12, color: T.expense, fontWeight: 700, marginTop: 2 }}>{fmt(vals[i])}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Methodology Explanation */}
+          <div style={{ ...glassCardStyle, padding: 16, marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+              <Icon name="info" size={16} color={T.accent}/>
+              <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary }}>So funktioniert die Prognose</div>
+            </div>
+            <div style={{ fontSize: 12, color: T.textSecondary, lineHeight: 1.6 }}>
+              <div style={{ marginBottom: 10 }}>
+                Die Vorhersage nutzt ein <strong style={{ color: T.textPrimary }}>Ensemble-Modell</strong>, das vier unabhängige Algorithmen gewichtet kombiniert:
+              </div>
+
+              <div style={{ marginBottom: 8, paddingLeft: 8, borderLeft: `2px solid ${T.accent}30` }}>
+                <strong style={{ color: T.textPrimary }}>1. Gewichteter gleitender Durchschnitt (15%)</strong><br/>
+                Berechnet den Durchschnitt der letzten 6 Monate, wobei neuere Monate linear stärker gewichtet werden (Gewicht = Position). Stabil, aber träge bei Trendwechseln.
+              </div>
+
+              <div style={{ marginBottom: 8, paddingLeft: 8, borderLeft: `2px solid ${T.accent}30` }}>
+                <strong style={{ color: T.textPrimary }}>2. Holt's Double Exponential Smoothing (30%)</strong><br/>
+                Zwei Parameter (α=0.4 für Level, β=0.2 für Trend) glätten die Zeitreihe exponentiell. Erfasst sowohl das aktuelle Niveau als auch die Richtung der Veränderung. Haupttreiber der Prognose.
+              </div>
+
+              <div style={{ marginBottom: 8, paddingLeft: 8, borderLeft: `2px solid ${T.accent}30` }}>
+                <strong style={{ color: T.textPrimary }}>3. Lineare Regression (20%)</strong><br/>
+                Legt eine Trendgerade (y = a + bx) per Methode der kleinsten Quadrate durch alle historischen Datenpunkte. Gut für langfristige Richtung, ignoriert aber saisonale Schwankungen.
+              </div>
+
+              <div style={{ marginBottom: 10, paddingLeft: 8, borderLeft: `2px solid ${T.accent}30` }}>
+                <strong style={{ color: T.textPrimary }}>4. Saisonale Dekomposition (35%)</strong><br/>
+                Berechnet pro Kalendermonat einen Saisonindex (Dez = höher, Feb = niedriger) und multipliziert diesen mit einer Holt-Basisprognose. Höchste Gewichtung, da Ausgaben-Muster oft saisonal sind.
+              </div>
+
+              <div style={{ marginBottom: 8 }}>
+                Das <strong style={{ color: T.textPrimary }}>Konfidenzband</strong> (schattierter Bereich im Chart) basiert auf der historischen Standardabweichung deiner Ausgaben (±0.8σ) und zeigt den wahrscheinlichen Schwankungsbereich.
+              </div>
+
+              <div style={{ padding: "8px 10px", background: `${T.accent}08`, borderRadius: 8, fontSize: 11, color: T.textMuted }}>
+                💡 Die Prognose-Qualität steigt mit der Datenmenge. Ab 6+ Monaten sind die Saisonmuster besonders zuverlässig. Wiederkehrende Buchungen (Miete, Abos) bilden das stabile Fundament.
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── Entry Modal ──────────────────────────────────────────
+function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, viewMonth, viewYear, T, styles }) {
+  const { inputStyle, selectStyle, labelStyle, btnPrimary, btnSecondary, chipStyle } = styles;
+  const isEdit = !!editEntry;
+  const [form, setForm] = useState({ type: "expense", category: "", amount: "", description: "", date: dateStr(viewYear, viewMonth, getToday().day) });
+  useEffect(() => {
+    if (editEntry) setForm({ type: editEntry.type, category: editEntry.category, amount: String(editEntry.amount), description: editEntry.description, date: editEntry.date });
+    else setForm({ type: "expense", category: "", amount: "", description: "", date: dateStr(viewYear, viewMonth, getToday().day) });
+  }, [editEntry, open, viewMonth, viewYear]);
+  const catsByType = (t) => t === "income" ? categories.income : categories.expense;
+  const save = () => { if (!form.amount || !form.category || !form.date) return; onSave({ ...(editEntry || {}), ...form, amount: parseFloat(form.amount) }); };
+  return (
+    <Modal open={open} onClose={onClose} title={isEdit ? "Eintrag bearbeiten" : "Neuer Eintrag"} T={T}>
+      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+        <button onClick={() => setForm(f => ({ ...f, type: "expense", category: "" }))} style={chipStyle(form.type === "expense")}>Ausgabe</button>
+        <button onClick={() => setForm(f => ({ ...f, type: "income", category: "" }))} style={chipStyle(form.type === "income")}>Einnahme</button>
+      </div>
+      <label style={labelStyle}>Kategorie</label>
+      <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={selectStyle}>
+        <option value="">Kategorie wählen...</option>
+        {catsByType(form.type).map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
+      </select>
+      <label style={labelStyle}>Betrag (€)</label>
+      <input type="number" inputMode="decimal" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={inputStyle} placeholder="0.00"/>
+      <label style={labelStyle}>Beschreibung</label>
+      <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} style={inputStyle} placeholder="Wofür?"/>
+      <label style={labelStyle}>Datum</label>
+      <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStyle}/>
+      <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+        <button onClick={save} style={btnPrimary}>{isEdit ? "Speichern" : "Hinzufügen"}</button>
+        {isEdit && <button onClick={() => onDelete(editEntry.id)} style={{ ...btnSecondary, color: T.expense, borderColor: `${T.expense}40`, flex: "0 0 auto" }}>Löschen</button>}
+      </div>
+    </Modal>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  MAIN APP
+// ════════════════════════════════════════════════════════════
+export default function BudgetPlanner() {
+  const [data, setData] = useState(() => loadLocal() || defaultData());
+  const [userId, setUserId] = useState(null);
+  const [syncStatus, setSyncStatus] = useState("connecting"); // "connecting" | "synced" | "offline"
+  const skipNextSync = useRef(false);
+  const [viewMonth, setViewMonth] = useState(getToday().month);
+  const [viewYear, setViewYear] = useState(getToday().year);
+  const [page, setPage] = useState("home");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [newEntryOpen, setNewEntryOpen] = useState(false);
+  const [editEntry, setEditEntry] = useState(null);
+  const [theme, setTheme] = useState("light");
+  const fileInputRef = useRef(null);
+
+  const T = themes[theme];
+  const isDark = theme === "dark";
+
+  const balanceColor = (val) => val < 0 ? T.expense : val <= 500 ? T.warning : T.income;
+
+  // ─── Firebase Auth (Anonymous) ────────────────────────────
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setUserId(user.uid);
+      } else {
+        signInAnonymously(auth).catch(() => setSyncStatus("offline"));
+      }
+    });
+    return unsub;
+  }, []);
+
+  // ─── Firestore Realtime Listener ──────────────────────────
+  useEffect(() => {
+    if (!userId) return;
+    const docRef = doc(db, "budgets", userId);
+    const unsub = onSnapshot(docRef, (snap) => {
+      if (snap.exists()) {
+        const remote = snap.data().data;
+        if (remote) {
+          skipNextSync.current = true;
+          setData(typeof remote === "string" ? JSON.parse(remote) : remote);
+        }
+      }
+      setSyncStatus("synced");
+    }, () => setSyncStatus("offline"));
+    return unsub;
+  }, [userId]);
+
+  // ─── Save to Firestore + localStorage on data change ──────
+  const saveTimeout = useRef(null);
+  useEffect(() => {
+    saveLocal(data);
+    if (!userId) return;
+    if (skipNextSync.current) { skipNextSync.current = false; return; }
+    // Debounce Firestore writes (500ms)
+    clearTimeout(saveTimeout.current);
+    saveTimeout.current = setTimeout(() => {
+      const docRef = doc(db, "budgets", userId);
+      setDoc(docRef, { data: JSON.stringify(data), updatedAt: new Date().toISOString() })
+        .then(() => setSyncStatus("synced"))
+        .catch(() => setSyncStatus("offline"));
+    }, 500);
+  }, [data, userId]);
+
+  // ─── Themed Form Styles ─────────────────────────────────
+  const inputStyle = { width: "100%", padding: "10px 14px", background: T.inputBg, backdropFilter: T.glassBlur, border: `1px solid ${T.inputBorder}`, borderRadius: 10, color: T.inputText, fontSize: 14, outline: "none", boxSizing: "border-box", transition: "all .2s" };
+  const selectStyle = { ...inputStyle, appearance: "none", backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23${isDark ? '888' : '6b7280'}' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")`, backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center" };
+  const labelStyle = { display: "block", fontSize: 12, color: T.textMuted, marginBottom: 4, marginTop: 12 };
+  const btnPrimary = { padding: "12px 24px", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`, border: "none", borderRadius: 12, color: "#fff", fontSize: 15, fontWeight: 700, cursor: "pointer", width: "100%", boxShadow: `0 4px 16px ${T.accent}30`, transition: "all .2s" };
+  const btnSecondary = { padding: "10px 18px", background: T.glassCard, backdropFilter: T.glassBlur, border: `1px solid ${T.glassBorder}`, borderRadius: 10, color: T.textPrimary, fontSize: 13, cursor: "pointer", transition: "all .2s" };
+  const chipStyle = (active) => ({ padding: "8px 18px", borderRadius: 20, border: "none", fontSize: 13, fontWeight: 600, cursor: "pointer", background: active ? `linear-gradient(135deg, ${T.accent}, ${T.accentPink})` : T.chipInactiveBg, color: active ? "#fff" : T.chipInactiveText, transition: "all .2s" });
+  const glassCardStyle = { background: T.glassCard, backdropFilter: T.glassBlur, borderRadius: 14, border: `1px solid ${T.glassBorder}`, boxShadow: T.glassShadow, transition: "all .2s" };
+
+  const styles = { inputStyle, selectStyle, labelStyle, btnPrimary, btnSecondary, chipStyle, glassCardStyle };
+
+
+  // Apply recurring
+  useEffect(() => {
+    const now = getToday();
+    const applied = { ...data.appliedRecurring };
+    let ne = [];
+    data.recurring.forEach(rec => {
+      const sY = parseInt(rec.startYear), sM = parseInt(rec.startMonth), cy = parseInt(rec.cycle) || 1;
+      let cY = sY, cM = sM;
+      while (cY < now.year || (cY === now.year && cM <= now.month)) {
+        const key = `${rec.id}_${cY}_${cM}`;
+        if (!applied[key]) { applied[key] = true; ne.push({ id: uid(), type: rec.type, category: rec.category, amount: parseFloat(rec.amount), description: rec.description + " (wiederkehrend)", date: dateStr(cY, cM, 1) }); }
+        cM += cy; while (cM > 11) { cM -= 12; cY++; }
+      }
+    });
+    if (ne.length > 0) setData(prev => ({ ...prev, entries: [...prev.entries, ...ne], appliedRecurring: applied }));
+  }, [data.recurring]);
+
+  const monthEntries = useMemo(() => data.entries.filter(e => { const d = new Date(e.date); return d.getMonth() === viewMonth && d.getFullYear() === viewYear; }), [data.entries, viewMonth, viewYear]);
+  const income = useMemo(() => monthEntries.filter(e => e.type === "income").reduce((s, e) => s + e.amount, 0), [monthEntries]);
+  const expense = useMemo(() => monthEntries.filter(e => e.type === "expense").reduce((s, e) => s + e.amount, 0), [monthEntries]);
+  const balance = income - expense;
+
+  const prevMonth = () => { if (viewMonth === 0) { setViewMonth(11); setViewYear(y => y - 1); } else setViewMonth(m => m - 1); };
+  const nextMonth = () => { if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1); };
+  const goToday = () => { setViewMonth(getToday().month); setViewYear(getToday().year); };
+
+  const handleSaveEntry = (entry) => {
+    if (entry.id) setData(prev => ({ ...prev, entries: prev.entries.map(e => e.id === entry.id ? entry : e) }));
+    else setData(prev => ({ ...prev, entries: [...prev.entries, { ...entry, id: uid() }] }));
+    setNewEntryOpen(false); setEditEntry(null);
+  };
+  const handleDeleteEntry = (id) => { setData(prev => ({ ...prev, entries: prev.entries.filter(e => e.id !== id) })); setNewEntryOpen(false); setEditEntry(null); };
+  const openEdit = (e) => { setEditEntry(e); setNewEntryOpen(true); };
+  const navigate = (p) => { setPage(p); setMenuOpen(false); };
+
+  const [exportPreview, setExportPreview] = useState(false);
+  const [copySuccess, setCopySuccess] = useState(false);
+  const exportText = useMemo(() => JSON.stringify(data, null, 2), [data, exportPreview]);
+
+  const handleExport = () => {
+    try {
+      const blob = new Blob([exportText], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `budget_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch {
+      setExportPreview(true);
+    }
+  };
+
+  const handleCopyExport = async () => {
+    try {
+      await navigator.clipboard.writeText(exportText);
+      setCopySuccess(true);
+      setTimeout(() => setCopySuccess(false), 2000);
+    } catch {
+      const ta = document.getElementById("export-textarea");
+      if (ta) { ta.select(); document.execCommand("copy"); setCopySuccess(true); setTimeout(() => setCopySuccess(false), 2000); }
+    }
+  };
+
+  const [importMsg, setImportMsg] = useState(null);
+  const [confirmReset, setConfirmReset] = useState(false);
+
+  const handleReset = () => {
+    setData(emptyData());
+    setConfirmReset(false);
+    setImportMsg({ type: "success", title: "Daten gelöscht", text: "Alle Einträge, Kategorien, Sparziele und wiederkehrende Buchungen wurden gelöscht." });
+  };
+
+  const importJSON = (ev) => {
+    const file = ev.target.files[0]; if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const imp = JSON.parse(e.target.result);
+        if (imp.entries) {
+          setData({ ...emptyData(), ...imp });
+          const n = imp.entries.length;
+          setImportMsg({ type: "success", title: "Import erfolgreich", text: `${n} Einträge geladen aus „${file.name}".` });
+        } else {
+          setImportMsg({ type: "error", text: "Die Datei enthält keine gültigen Budget-Daten." });
+        }
+      } catch {
+        setImportMsg({ type: "error", text: "Ungültige JSON-Datei. Bitte prüfe das Dateiformat." });
+      }
+    };
+    reader.readAsText(file);
+    ev.target.value = "";
+  };
+
+  const groupByCategory = (entries) => { const g = {}; entries.forEach(e => { g[e.category] = (g[e.category] || 0) + e.amount; }); return Object.entries(g).map(([cat, val]) => ({ category: cat, value: val })); };
+
+  const emojiLookup = (categoryName, type) => {
+    const cats = type === "income" ? data.categories.income : data.categories.expense;
+    const found = cats.find(c => catName(c) === categoryName);
+    return found ? catEmoji(found) : "";
+  };
+
+  const colorLookup = (categoryName, type) => {
+    const cats = type === "income" ? data.categories.income : data.categories.expense;
+    const found = cats.find(c => catName(c) === categoryName);
+    return found ? catColorVal(found) : CAT_COLORS[0].hex;
+  };
+
+  // ─── HOME ───────────────────────────────────────
+  const renderHome = () => (
+    <div style={{ padding: "0 16px 100px" }}>
+      <MonthNav viewMonth={viewMonth} viewYear={viewYear} prevMonth={prevMonth} nextMonth={nextMonth} goToday={goToday} T={T} btnSecondary={btnSecondary}/>
+      {/* Balance Card */}
+      <div style={{
+        background: isDark
+          ? `linear-gradient(135deg, rgba(123,97,255,0.15), rgba(0,232,123,0.06))`
+          : `linear-gradient(135deg, rgba(124,58,237,0.08), rgba(192,38,211,0.06), rgba(6,182,212,0.05))`,
+        backdropFilter: T.glassBlur,
+        border: `1px solid ${isDark ? 'rgba(123,97,255,0.25)' : 'rgba(255,255,255,0.7)'}`,
+        borderRadius: 20, padding: "28px 24px", textAlign: "center",
+        boxShadow: T.glassShadow,
+        marginBottom: 20
+      }}>
+        <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 4, textTransform: "uppercase", letterSpacing: 1 }}>Bilanz</div>
+        <div style={{ fontSize: 36, fontWeight: 800, color: balanceColor(balance), lineHeight: 1.2 }}>{fmt(balance)}</div>
+        <div style={{ display: "flex", justifyContent: "center", gap: 32, marginTop: 20 }}>
+          <div onClick={() => setPage("income-analysis")} style={{ cursor: "pointer" }}><div style={{ fontSize: 11, color: T.income, marginBottom: 2 }}>▲ Einnahmen →</div><div style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary }}>{fmt(income)}</div></div>
+          <div style={{ width: 1, background: `${T.textMuted}30` }}/>
+          <div onClick={() => setPage("expense-analysis")} style={{ cursor: "pointer" }}><div style={{ fontSize: 11, color: T.expense, marginBottom: 2 }}>▼ Ausgaben →</div><div style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary }}>{fmt(expense)}</div></div>
+        </div>
+      </div>
+      {/* Savings Goals */}
+      <div style={{ ...glassCardStyle, padding: "16px 20px", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, display: "flex", alignItems: "center", gap: 8 }}><Icon name="target" size={16} color={T.warning}/> Sparziele</div>
+          <button onClick={() => setPage("savings")} style={{ background: "none", border: "none", color: T.accent, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Verwalten →</button>
+        </div>
+        {data.savingsGoals.length === 0 ? <div style={{ color: T.textMuted, fontSize: 13, padding: "8px 0" }}>Noch keine Sparziele definiert</div>
+        : data.savingsGoals.map(g => { const pct = Math.min((g.saved / g.target) * 100, 100); return (
+          <div key={g.id} style={{ marginBottom: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textSecondary, marginBottom: 4 }}><span>{g.emoji && <span style={{ marginRight: 4 }}>{g.emoji}</span>}{g.name}</span><span>{fmt(g.saved)} / {fmt(g.target)}</span></div>
+            <div style={{ height: 6, background: `${T.textMuted}20`, borderRadius: 3, overflow: "hidden" }}><div style={{ height: "100%", width: `${pct}%`, background: pct >= 100 ? T.income : `linear-gradient(90deg, ${T.accent}, #00f0ff)`, borderRadius: 3, transition: "width .5s" }}/></div>
+          </div>
+        ); })}
+      </div>
+      {/* Recent Entries */}
+      <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>Letzte Einträge</div>
+      {monthEntries.length === 0 ? <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 24 }}>Keine Einträge in diesem Monat</div>
+      : [...monthEntries].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10).map(e => <EntryItem key={e.id} e={e} onClick={() => openEdit(e)} emojiLookup={emojiLookup} colorLookup={colorLookup} T={T}/>)}
+    </div>
+  );
+
+  // ─── ANALYSIS ───────────────────────────────────
+  const renderAnalysis = (type) => {
+    const tl = type === "income" ? "Einnahmen" : "Ausgaben";
+    const color = type === "income" ? T.income : T.expense;
+    const mot = monthEntries.filter(e => e.type === type);
+    const grouped = groupByCategory(mot);
+    const dd = grouped.map((g) => ({ label: `${emojiLookup(g.category, type)} ${g.category}`.trim(), value: g.value, color: colorLookup(g.category, type) })).sort((a, b) => b.value - a.value);
+    const lp = [];
+    for (let i = 11; i >= 0; i--) { let m = viewMonth - i, y = viewYear; while (m < 0) { m += 12; y--; } lp.push({ v: data.entries.filter(e => { const d = new Date(e.date); return e.type === type && d.getMonth() === m && d.getFullYear() === y; }).reduce((s, e) => s + e.amount, 0), label: new Date(y, m).toLocaleString("de-DE", { month: "short" }) }); }
+    return (
+      <div style={{ padding: "0 16px 100px" }}>
+        <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{tl}-Analyse</h2>
+        <p style={{ color: T.textMuted, fontSize: 13, marginBottom: 16 }}>{monthName(viewMonth, viewYear)}</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+          <button onClick={prevMonth} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 12 }}>← Zurück</button>
+          <button onClick={nextMonth} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 12 }}>Weiter →</button>
+          <button onClick={goToday} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 12 }}>Heute</button>
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
+          <div style={{ flex: "1 1 200px", display: "flex", justifyContent: "center" }}><DonutChart data={dd} size={200} T={T}/></div>
+          <div style={{ flex: "1 1 200px" }}>{(() => { const total = dd.reduce((s, d) => s + d.value, 0); return dd.map((d, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${T.tableRow}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}><span style={{ width: 10, height: 10, borderRadius: "50%", background: d.color, display: "inline-block" }}/><span style={{ color: T.textSecondary, fontSize: 13 }}>{d.label}</span></div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ color: T.textMuted, fontSize: 12 }}>{total > 0 ? Math.round(d.value / total * 100) : 0}%</span>
+                <span style={{ color: T.textPrimary, fontSize: 13, fontWeight: 600, minWidth: 70, textAlign: "right" }}>{fmt(d.value)}</span>
+              </div>
+            </div>
+          )); })()}</div>
+        </div>
+        <div style={{ ...glassCardStyle, padding: "16px 8px", marginBottom: 24 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary, marginBottom: 8, paddingLeft: 8 }}>Verlauf (12 Monate)</div>
+          <LineChart points={lp} color={color} height={220} T={T}/>
+        </div>
+        <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>Alle {tl} ({monthName(viewMonth, viewYear)})</div>
+        {mot.length === 0 ? <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 20 }}>Keine {tl}</div>
+        : [...mot].sort((a, b) => new Date(b.date) - new Date(a.date)).map(e => <EntryItem key={e.id} e={e} onClick={() => openEdit(e)} emojiLookup={emojiLookup} colorLookup={colorLookup} T={T}/>)}
+      </div>
+    );
+  };
+
+  // ─── YEARLY ─────────────────────────────────────
+  const renderYearly = () => {
+    const yr = viewYear;
+    const md = Array.from({ length: 12 }, (_, m) => { const me = data.entries.filter(e => { const d = new Date(e.date); return d.getMonth() === m && d.getFullYear() === yr; }); return { label: new Date(yr, m).toLocaleString("de-DE", { month: "short" }), income: me.filter(e => e.type === "income").reduce((s, e) => s + e.amount, 0), expense: me.filter(e => e.type === "expense").reduce((s, e) => s + e.amount, 0) }; });
+    md.forEach(m => m.balance = m.income - m.expense);
+    const tI = md.reduce((s, m) => s + m.income, 0), tE = md.reduce((s, m) => s + m.expense, 0);
+    return (
+      <div style={{ padding: "0 16px 100px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, margin: 0 }}>Jahresübersicht {yr}</h2>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button onClick={() => setViewYear(y => y - 1)} style={{ ...btnSecondary, padding: "6px 10px" }}><Icon name="left" size={16}/></button>
+            <button onClick={() => setViewYear(getToday().year)} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 11 }}>Aktuell</button>
+            <button onClick={() => setViewYear(y => y + 1)} style={{ ...btnSecondary, padding: "6px 10px" }}><Icon name="right" size={16}/></button>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
+          {[{ l: "Einnahmen", v: tI, c: T.income }, { l: "Ausgaben", v: tE, c: T.expense }, { l: "Bilanz", v: tI - tE, c: balanceColor(tI - tE) }].map(x => (
+            <div key={x.l} style={{ flex: "1 1 100px", ...glassCardStyle, padding: "14px 16px" }}>
+              <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>{x.l}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: x.c }}>{fmt(x.v)}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ ...glassCardStyle, padding: 16, marginBottom: 20 }}><BarChart data={md} T={T}/></div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+            <thead><tr style={{ borderBottom: `1px solid ${T.textMuted}30` }}>{["Monat", "Einnahmen", "Ausgaben", "Bilanz"].map(h => <th key={h} style={{ padding: "8px 10px", textAlign: "left", color: T.textMuted, fontWeight: 600, fontSize: 11, textTransform: "uppercase" }}>{h}</th>)}</tr></thead>
+            <tbody>{md.map((m, i) => (
+              <tr key={i} style={{ borderBottom: `1px solid ${T.tableRow}`, cursor: "pointer" }} onClick={() => { setViewMonth(i); setPage("home"); }}>
+                <td style={{ padding: 10, color: T.textPrimary, fontWeight: 600 }}>{m.label}</td>
+                <td style={{ padding: 10, color: T.income }}>{fmt(m.income)}</td>
+                <td style={{ padding: 10, color: T.expense }}>{fmt(m.expense)}</td>
+                <td style={{ padding: 10, color: balanceColor(m.balance), fontWeight: 700 }}>{fmt(m.balance)}</td>
+              </tr>
+            ))}</tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
+
+  // ─── IMPORT/EXPORT ──────────────────────────────
+  const renderImportExport = () => (
+    <div style={{ padding: "0 16px 100px" }}>
+      <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 20 }}>Import / Export</h2>
+      <div style={{ ...glassCardStyle, padding: 20, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}><Icon name="download" size={20} color={isDark ? "#00f0ff" : T.accent}/><span style={{ color: T.textPrimary, fontSize: 16, fontWeight: 700 }}>Export</span></div>
+        <p style={{ color: T.textMuted, fontSize: 13, marginBottom: 14 }}>Budget-Datenbasis als JSON exportieren.</p>
+        <div style={{ display: "flex", gap: 8, marginBottom: exportPreview ? 12 : 0 }}>
+          <button onClick={handleExport} style={{ ...btnPrimary, flex: 1 }}>
+            <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><Icon name="download" size={18}/> Herunterladen</span>
+          </button>
+          <button onClick={() => setExportPreview(p => !p)} style={{ ...btnSecondary, flex: "0 0 auto" }}>
+            {exportPreview ? "Ausblenden" : "Daten anzeigen"}
+          </button>
+        </div>
+        {exportPreview && (
+          <div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+              <span style={{ fontSize: 12, color: T.textMuted }}>JSON-Daten ({Math.round(exportText.length / 1024)} KB)</span>
+              <button onClick={handleCopyExport} style={{ ...btnSecondary, padding: "6px 14px", fontSize: 12, background: copySuccess ? T.incomeGlow : T.glassCard, color: copySuccess ? T.income : T.textPrimary }}>
+                {copySuccess ? "✓ Kopiert!" : "In Zwischenablage kopieren"}
+              </button>
+            </div>
+            <textarea id="export-textarea" readOnly value={exportText} style={{
+              width: "100%", height: 180, padding: 12, background: T.exportBg, border: `1px solid ${T.inputBorder}`,
+              borderRadius: 10, color: T.exportText, fontSize: 11, fontFamily: "monospace", resize: "vertical",
+              outline: "none", boxSizing: "border-box"
+            }} onFocus={e => e.target.select()}/>
+          </div>
+        )}
+      </div>
+      <div style={{ ...glassCardStyle, padding: 20, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}><Icon name="upload" size={20} color={T.accentPink}/><span style={{ color: T.textPrimary, fontSize: 16, fontWeight: 700 }}>Import</span></div>
+        <p style={{ color: T.textMuted, fontSize: 13, marginBottom: 14 }}>JSON-Datei importieren (überschreibt Daten).</p>
+        <button onClick={() => fileInputRef.current?.click()} style={{ ...btnPrimary, background: `linear-gradient(135deg, ${T.accentPink}, ${T.accent})` }}>
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><Icon name="upload" size={18}/> JSON importieren</span>
+        </button>
+      </div>
+      <div style={{ ...glassCardStyle, padding: 20, marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}><Icon name="trash" size={20} color={T.expense}/><span style={{ color: T.textPrimary, fontSize: 16, fontWeight: 700 }}>Zurücksetzen</span></div>
+        <p style={{ color: T.textMuted, fontSize: 13, marginBottom: 14 }}>Alle Daten löschen.</p>
+        <button onClick={() => setConfirmReset(true)} style={{ ...btnPrimary, background: `linear-gradient(135deg, ${T.expense}, #ff6b35)` }}>
+          <span style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}><Icon name="trash" size={18}/> Alle Daten löschen</span>
+        </button>
+      </div>
+      <input ref={fileInputRef} type="file" accept=".json" onChange={importJSON} style={{ display: "none" }}/>
+    </div>
+  );
+
+  const menuItems = [
+    { id: "home", icon: "home", label: "Übersicht" },
+    { id: "income-analysis", icon: "trendUp", label: "Einnahmen-Analyse" },
+    { id: "expense-analysis", icon: "trendDown", label: "Ausgaben-Analyse" },
+    { id: "categories", icon: "tag", label: "Kategorien" },
+    { id: "recurring", icon: "repeat", label: "Wiederkehrend" },
+    { id: "savings", icon: "target", label: "Sparziele" },
+    { id: "yearly", icon: "calendar", label: "Jahresübersicht" },
+    { id: "prediction", icon: "zap", label: "Prognose" },
+    { id: "import-export", icon: "download", label: "Import / Export" },
+  ];
+
+  const renderPage = () => {
+    switch (page) {
+      case "home": return renderHome();
+      case "income-analysis": return renderAnalysis("income");
+      case "expense-analysis": return renderAnalysis("expense");
+      case "categories": return <CategoriesPage key="categories" data={data} setData={setData} T={T} styles={styles}/>;
+      case "recurring": return <RecurringPage key="recurring" data={data} setData={setData} T={T} styles={styles}/>;
+      case "savings": return <SavingsPage key="savings" data={data} setData={setData} T={T} styles={styles}/>;
+      case "yearly": return renderYearly();
+      case "prediction": return <PredictionPage key="prediction" data={data} T={T} styles={styles}/>;
+      case "import-export": return renderImportExport();
+      default: return renderHome();
+    }
+  };
+
+  return (
+    <div style={{
+      fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace",
+      background: T.bgGradient,
+      minHeight: "100vh",
+      color: T.textPrimary,
+      position: "relative",
+      overflow: "hidden",
+      maxWidth: 520,
+      margin: "0 auto",
+      transition: "background .4s ease, color .3s ease"
+    }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700;800&display=swap');
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; background: ${T.bg}; transition: background .4s ease; }
+        input:focus, select:focus { border-color: ${T.accent}80 !important; box-shadow: 0 0 0 2px ${T.accent}20; }
+        ::-webkit-scrollbar { width: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${T.scrollThumb}; border-radius: 2px; }
+        @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        @keyframes slideIn { from { transform: translateX(-100%); } to { transform: translateX(0); } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes neonPulse { 0%, 100% { filter: brightness(1); } 50% { filter: brightness(1.15); } }
+        @keyframes floatOrb1 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(40px, -30px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.95); } }
+        @keyframes floatOrb2 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-50px, 20px) scale(0.9); } 66% { transform: translate(30px, -40px) scale(1.08); } }
+        @keyframes floatOrb3 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(25px, 35px) scale(1.05); } }
+      `}</style>
+
+      {/* ─── Animated Background Orbs ─── */}
+      {isDark ? (
+        <>
+          <div style={{ position: "fixed", top: -100, right: -100, width: 300, height: 300, background: "radial-gradient(circle, rgba(123,97,255,0.08) 0%, transparent 70%)", pointerEvents: "none", animation: "floatOrb1 20s ease-in-out infinite" }}/>
+          <div style={{ position: "fixed", bottom: -100, left: -100, width: 300, height: 300, background: "radial-gradient(circle, rgba(0,232,123,0.05) 0%, transparent 70%)", pointerEvents: "none", animation: "floatOrb2 25s ease-in-out infinite" }}/>
+        </>
+      ) : (
+        <>
+          {/* Large soft pastel orbs for glassmorphism backdrop */}
+          {/* Lavender orb — top left */}
+          <div style={{ position: "fixed", top: -100, left: -80, width: 450, height: 450, background: "radial-gradient(circle, rgba(124,58,237,0.18) 0%, rgba(124,58,237,0.06) 45%, transparent 70%)", pointerEvents: "none", borderRadius: "50%", filter: "blur(40px)", animation: "floatOrb1 20s ease-in-out infinite" }}/>
+          {/* Pink orb — top right */}
+          <div style={{ position: "fixed", top: -40, right: -60, width: 380, height: 380, background: "radial-gradient(circle, rgba(236,72,153,0.16) 0%, rgba(236,72,153,0.05) 45%, transparent 70%)", pointerEvents: "none", borderRadius: "50%", filter: "blur(45px)", animation: "floatOrb2 24s ease-in-out infinite" }}/>
+          {/* Peach / warm orb — center right */}
+          <div style={{ position: "fixed", top: "35%", right: -30, width: 350, height: 350, background: "radial-gradient(circle, rgba(251,146,60,0.14) 0%, rgba(251,146,60,0.04) 45%, transparent 70%)", pointerEvents: "none", borderRadius: "50%", filter: "blur(50px)", animation: "floatOrb3 18s ease-in-out infinite" }}/>
+          {/* Cyan / teal orb — bottom left */}
+          <div style={{ position: "fixed", bottom: -80, left: -40, width: 420, height: 420, background: "radial-gradient(circle, rgba(6,182,212,0.15) 0%, rgba(6,182,212,0.05) 45%, transparent 70%)", pointerEvents: "none", borderRadius: "50%", filter: "blur(45px)", animation: "floatOrb2 22s ease-in-out infinite reverse" }}/>
+          {/* Soft violet orb — bottom center */}
+          <div style={{ position: "fixed", bottom: -60, left: "40%", width: 360, height: 360, background: "radial-gradient(circle, rgba(139,92,246,0.12) 0%, rgba(139,92,246,0.04) 45%, transparent 70%)", pointerEvents: "none", borderRadius: "50%", filter: "blur(50px)", animation: "floatOrb1 26s ease-in-out infinite reverse" }}/>
+          {/* Soft green accent — center left */}
+          <div style={{ position: "fixed", top: "50%", left: -60, width: 300, height: 300, background: "radial-gradient(circle, rgba(52,211,153,0.1) 0%, transparent 60%)", pointerEvents: "none", borderRadius: "50%", filter: "blur(40px)", animation: "floatOrb3 16s ease-in-out infinite reverse" }}/>
+        </>
+      )}
+
+      {/* Header */}
+      <div style={{
+        display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px",
+        background: T.headerBg, backdropFilter: T.glassBlur,
+        borderBottom: `1px solid ${T.headerBorder}`,
+        position: "sticky", top: 0, zIndex: 100,
+        boxShadow: isDark ? "none" : "0 4px 20px rgba(100,80,160,0.06)"
+      }}>
+        <button onClick={() => setMenuOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: T.textPrimary }}><Icon name="menu" size={22}/></button>
+        <span onClick={() => setPage("home")} style={{ fontSize: 16, fontWeight: 800, letterSpacing: 1, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, ...(isDark ? { animation: "neonPulse 3s ease-in-out infinite" } : {}) }}>
+          <span style={{ color: T.titleGlow1, textShadow: T.titleShadow1 }}>Budget</span>{" "}
+          <span style={{ color: T.titleGlow2, textShadow: T.titleShadow2 }}>Planer</span>
+          <span title={syncStatus === "synced" ? "Cloud-Sync aktiv" : syncStatus === "connecting" ? "Verbinde..." : "Offline – Daten lokal gespeichert"} style={{
+            width: 7, height: 7, borderRadius: "50%", marginLeft: 4, flexShrink: 0,
+            background: syncStatus === "synced" ? T.income : syncStatus === "connecting" ? T.warning : T.expense,
+            boxShadow: `0 0 6px ${syncStatus === "synced" ? T.income : syncStatus === "connecting" ? T.warning : T.expense}60`,
+            animation: syncStatus === "connecting" ? "neonPulse 1.5s ease-in-out infinite" : "none"
+          }}/>
+        </span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} style={{
+            background: T.glassCard, backdropFilter: T.glassBlur, border: `1px solid ${T.glassBorder}`,
+            borderRadius: 10, padding: "7px 8px", cursor: "pointer", display: "flex", alignItems: "center",
+            color: T.textPrimary, transition: "all .3s"
+          }} title={isDark ? "Light Mode" : "Dark Mode"}>
+            <Icon name={isDark ? "sun" : "moon"} size={16}/>
+          </button>
+          <button onClick={() => { setEditEntry(null); setNewEntryOpen(true); }} style={{
+            background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`, border: "none", borderRadius: 10,
+            padding: "8px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
+            color: "#fff", fontSize: 12, fontWeight: 700, boxShadow: `0 4px 16px ${T.accent}30`, whiteSpace: "nowrap"
+          }}><Icon name="plus" size={14}/> Neu</button>
+        </div>
+      </div>
+
+      {/* Side Menu */}
+      {menuOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 500, animation: "fadeIn .2s" }} onClick={() => setMenuOpen(false)}>
+          <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(6px)" }}/>
+          <div onClick={e => e.stopPropagation()} style={{
+            position: "absolute", left: 0, top: 0, bottom: 0, width: 280,
+            background: T.menuBg, backdropFilter: T.glassBlur,
+            borderRight: `1px solid ${T.menuBorder}`,
+            padding: "24px 0", boxShadow: isDark ? "8px 0 40px rgba(0,0,0,0.5)" : "8px 0 40px rgba(100,80,160,0.08)",
+            animation: "slideIn .3s ease"
+          }}>
+            <div style={{ padding: "0 20px 20px", borderBottom: `1px solid ${T.headerBorder}`, marginBottom: 8 }}>
+              <div onClick={() => navigate("home")} style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1, cursor: "pointer" }}>
+                <span style={{ color: T.titleGlow1, textShadow: isDark ? T.titleShadow1 : "none" }}>Budget</span>{" "}
+                <span style={{ color: T.titleGlow2, textShadow: isDark ? T.titleShadow2 : "none" }}>Planer</span>
+              </div>
+              <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>Deine Finanzen im Blick</div>
+            </div>
+            {menuItems.map(item => (
+              <button key={item.id} onClick={() => navigate(item.id)} style={{
+                display: "flex", alignItems: "center", gap: 14, width: "100%", padding: "13px 20px",
+                background: page === item.id ? `${T.accent}18` : "transparent",
+                border: "none", borderLeft: page === item.id ? `3px solid ${T.accent}` : "3px solid transparent",
+                color: page === item.id ? T.textPrimary : T.textMuted, fontSize: 14, fontWeight: page === item.id ? 700 : 500,
+                cursor: "pointer", transition: "all .15s", textAlign: "left"
+              }}><Icon name={item.icon} size={18} color={page === item.id ? T.accent : T.textMuted}/>{item.label}</button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{ paddingTop: 8, position: "relative", zIndex: 1 }}>{renderPage()}</div>
+
+      <EntryModal open={newEntryOpen} onClose={() => { setNewEntryOpen(false); setEditEntry(null); }} editEntry={editEntry} onSave={handleSaveEntry} onDelete={handleDeleteEntry} categories={data.categories} viewMonth={viewMonth} viewYear={viewYear} T={T} styles={styles}/>
+
+      {/* Import Message Box */}
+      {importMsg && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setImportMsg(null)}>
+          <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(6px)" }}/>
+          <div onClick={e => e.stopPropagation()} style={{
+            position: "relative", width: "85%", maxWidth: 360, background: T.modalBg, backdropFilter: T.glassBlur,
+            borderRadius: 20, padding: "28px 24px", textAlign: "center",
+            border: `1px solid ${importMsg.type === "success" ? `${T.income}40` : `${T.expense}40`}`,
+            boxShadow: T.glassShadow, animation: "slideUp .3s ease"
+          }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>{importMsg.type === "success" ? "✅" : "❌"}</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary, marginBottom: 8 }}>{importMsg.title || (importMsg.type === "success" ? "Erfolgreich" : "Fehlgeschlagen")}</div>
+            <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 20, lineHeight: 1.5 }}>{importMsg.text}</div>
+            <button onClick={() => setImportMsg(null)} style={{ ...btnPrimary, background: importMsg.type === "success" ? T.income : T.expense }}>OK</button>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Reset Dialog */}
+      {confirmReset && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setConfirmReset(false)}>
+          <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(6px)" }}/>
+          <div onClick={e => e.stopPropagation()} style={{
+            position: "relative", width: "85%", maxWidth: 360, background: T.modalBg, backdropFilter: T.glassBlur,
+            borderRadius: 20, padding: "28px 24px", textAlign: "center",
+            border: `1px solid ${T.expense}30`, boxShadow: T.glassShadow,
+            animation: "slideUp .3s ease"
+          }}>
+            <div style={{ fontSize: 40, marginBottom: 12 }}>⚠️</div>
+            <div style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary, marginBottom: 8 }}>Alle Daten löschen?</div>
+            <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 20, lineHeight: 1.5 }}>
+              Einträge, Kategorien, Sparziele und wiederkehrende Buchungen werden unwiderruflich gelöscht.
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button onClick={() => setConfirmReset(false)} style={{ ...btnSecondary, flex: 1, padding: "12px 16px", fontSize: 15, fontWeight: 700 }}>Abbrechen</button>
+              <button onClick={handleReset} style={{ ...btnPrimary, flex: 1, background: `linear-gradient(135deg, ${T.expense}, #ff6b35)` }}>Löschen</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
