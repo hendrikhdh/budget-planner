@@ -171,8 +171,7 @@ const saveLocal = (d) => {
 const emptyData = () => ({
   entries: [], recurring: [],
   categories: { income: [], expense: [] },
-  savingsGoals: [], appliedRecurring: {},
-  budgets: {}
+  savingsGoals: [], appliedRecurring: {}
 });
 const defaultData = () => ({
   entries: [
@@ -213,9 +212,9 @@ const defaultData = () => ({
     { id: "t35", type: "expense", category: "Kleidung", amount: 79, description: "Sneakers", date: "2026-03-10" },
   ],
   recurring: [
-    { id: "r01", type: "expense", category: "Miete", amount: 850, description: "Miete", startMonth: 0, startYear: 2026, cycle: 1, endMonth: null, endYear: null },
-    { id: "r02", type: "expense", category: "Abonnements", amount: 45.97, description: "Streaming-Abos", startMonth: 0, startYear: 2026, cycle: 1, endMonth: null, endYear: null },
-    { id: "r03", type: "income", category: "Gehalt", amount: 3200, description: "Monatsgehalt", startMonth: 0, startYear: 2026, cycle: 1, endMonth: null, endYear: null },
+    { id: "r01", type: "expense", category: "Miete", amount: 850, description: "Miete", startMonth: 0, startYear: 2026, cycle: 1 },
+    { id: "r02", type: "expense", category: "Abonnements", amount: 45.97, description: "Streaming-Abos", startMonth: 0, startYear: 2026, cycle: 1 },
+    { id: "r03", type: "income", category: "Gehalt", amount: 3200, description: "Monatsgehalt", startMonth: 0, startYear: 2026, cycle: 1 },
   ],
   categories: { income: [...DEFAULT_INCOME_CATS], expense: [...DEFAULT_EXPENSE_CATS] },
   savingsGoals: [
@@ -223,8 +222,7 @@ const defaultData = () => ({
     { id: "sg2", name: "Notgroschen", target: 5000, saved: 3800, emoji: "🛡️" },
     { id: "sg3", name: "Neues MacBook", target: 2000, saved: 620, emoji: "💻" },
   ],
-  appliedRecurring: {},
-  budgets: { "Lebensmittel": 400, "Restaurant": 150, "Unterhaltung": 100, "Kleidung": 150 }
+  appliedRecurring: {}
 });
 
 // ─── Icons ────────────────────────────────────────────────
@@ -251,8 +249,6 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
     moon: <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>,
     zap: <><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></>,
     info: <><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>,
-    search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
-    wallet: <><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></>,
   };
   return <svg viewBox="0 0 24 24" style={s}>{p[name]}</svg>;
 };
@@ -424,35 +420,31 @@ function CategoriesPage({ data, setData, T, styles }) {
   const [newColor, setNewColor] = useState(CAT_COLORS[0].hex);
   const [catType, setCatType] = useState("expense");
   const [editIdx, setEditIdx] = useState(null);
-  const [editForm, setEditForm] = useState({ name: "", emoji: "", color: "" });
+  const [editEmoji, setEditEmoji] = useState("");
+  const [colorPickerIdx, setColorPickerIdx] = useState(null);
 
   const addCat = () => {
     if (!newCat.trim()) return;
     setData(prev => ({ ...prev, categories: { ...prev.categories, [catType]: [...prev.categories[catType], { name: newCat.trim(), emoji: newEmoji || "", color: newColor }] } }));
     setNewCat(""); setNewEmoji(""); setNewColor(CAT_COLORS[0].hex);
   };
-  const removeCat = (type, idx) => {
-    setData(prev => ({ ...prev, categories: { ...prev.categories, [type]: prev.categories[type].filter((_, i) => i !== idx) } }));
-    if (editIdx === idx) setEditIdx(null);
-  };
-
-  const openEdit = (i) => {
-    if (editIdx === i) { setEditIdx(null); return; }
-    const cat = cats[i];
-    setEditForm({ name: catName(cat), emoji: catEmoji(cat), color: catColorVal(cat) });
-    setEditIdx(i);
-  };
-
-  const saveEdit = () => {
-    if (editIdx === null || !editForm.name.trim()) return;
+  const removeCat = (type, idx) => setData(prev => ({ ...prev, categories: { ...prev.categories, [type]: prev.categories[type].filter((_, i) => i !== idx) } }));
+  const updateEmoji = (type, idx, emoji) => {
     setData(prev => {
-      const updated = [...prev.categories[catType]];
-      updated[editIdx] = { name: editForm.name.trim(), emoji: editForm.emoji, color: editForm.color };
-      return { ...prev, categories: { ...prev.categories, [catType]: updated } };
+      const updated = [...prev.categories[type]];
+      updated[idx] = { ...updated[idx], name: catName(updated[idx]), emoji };
+      return { ...prev, categories: { ...prev.categories, [type]: updated } };
     });
-    setEditIdx(null);
+    setEditIdx(null); setEditEmoji("");
   };
-
+  const updateColor = (type, idx, color) => {
+    setData(prev => {
+      const updated = [...prev.categories[type]];
+      updated[idx] = { ...updated[idx], color };
+      return { ...prev, categories: { ...prev.categories, [type]: updated } };
+    });
+    setColorPickerIdx(null);
+  };
   const cats = catType === "expense" ? data.categories.expense : data.categories.income;
 
   const ColorDots = ({ selected, onSelect, size = 18 }) => (
@@ -470,8 +462,8 @@ function CategoriesPage({ data, setData, T, styles }) {
     <div style={{ padding: "0 16px 100px" }}>
       <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Kategorien</h2>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <button onClick={() => { setCatType("expense"); setEditIdx(null); }} style={chipStyle(catType === "expense")}>Ausgaben</button>
-        <button onClick={() => { setCatType("income"); setEditIdx(null); }} style={chipStyle(catType === "income")}>Einnahmen</button>
+        <button onClick={() => { setCatType("expense"); setEditIdx(null); setColorPickerIdx(null); }} style={chipStyle(catType === "expense")}>Ausgaben</button>
+        <button onClick={() => { setCatType("income"); setEditIdx(null); setColorPickerIdx(null); }} style={chipStyle(catType === "income")}>Einnahmen</button>
       </div>
       <div style={{ ...glassCardStyle, padding: 14, marginBottom: 20, border: `1px solid ${T.accent}30` }}>
         <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
@@ -484,56 +476,36 @@ function CategoriesPage({ data, setData, T, styles }) {
         </div>
         <button onClick={addCat} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Neue Kategorie</button>
       </div>
-      {cats.map((cat, i) => {
-        const isEditing = editIdx === i;
-        return (
-          <SwipeToDelete key={catName(cat) + i} onDelete={() => removeCat(catType, i)} T={T} disabled={isEditing}>
-            <div onClick={() => openEdit(i)} style={{
-              ...glassCardStyle, display: "flex", justifyContent: "space-between", alignItems: "center",
-              padding: "12px 16px", cursor: "pointer",
-              border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border,
-              borderRadius: isEditing ? "14px 14px 0 0" : 14,
-              transition: "all .15s"
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ width: 14, height: 14, borderRadius: "50%", background: catColorVal(cat), flexShrink: 0, boxShadow: `0 0 6px ${catColorVal(cat)}40` }}/>
-                <span style={{ fontSize: 18, minWidth: 24, textAlign: "center" }}>{catEmoji(cat) || "·"}</span>
-                <span style={{ color: T.textPrimary, fontSize: 14 }}>{catName(cat)}</span>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Icon name={isEditing ? "x" : "edit"} size={15} color={T.textMuted}/>
-              </div>
+      {cats.map((cat, i) => (
+        <div key={catName(cat) + i}>
+          <div style={{ ...glassCardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", marginBottom: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span onClick={() => setColorPickerIdx(colorPickerIdx === i ? null : i)}
+                style={{ width: 14, height: 14, borderRadius: "50%", background: catColorVal(cat), cursor: "pointer", border: `2px solid ${T.textMuted}40`, flexShrink: 0, transition: "box-shadow .15s", boxShadow: `0 0 6px ${catColorVal(cat)}40` }}
+                title="Farbe ändern"/>
+              {editIdx === i ? (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <input value={editEmoji} onChange={e => setEditEmoji(e.target.value)} style={{ ...inputStyle, width: 42, textAlign: "center", fontSize: 18, padding: "4px" }} autoFocus/>
+                  <button onClick={() => updateEmoji(catType, i, editEmoji)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}><Icon name="plus" size={16} color={T.income}/></button>
+                  <button onClick={() => setEditIdx(null)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}><Icon name="x" size={16} color={T.textMuted}/></button>
+                </div>
+              ) : (
+                <span onClick={() => { setEditIdx(i); setEditEmoji(catEmoji(cat)); setColorPickerIdx(null); }} style={{ cursor: "pointer", fontSize: 18, minWidth: 24, textAlign: "center" }} title="Emoji bearbeiten">
+                  {catEmoji(cat) || "·"}
+                </span>
+              )}
+              <span style={{ color: T.textPrimary, fontSize: 14 }}>{catName(cat)}</span>
             </div>
-            {isEditing && (
-              <div style={{
-                background: T.glassCard, backdropFilter: T.glassBlur,
-                borderRadius: "0 0 14px 14px", padding: "14px 16px",
-                border: `1px solid ${T.accent}50`, borderTop: "none",
-                boxShadow: T.glassShadow
-              }}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-                  <div>
-                    <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>Emoji</div>
-                    <input value={editForm.emoji} onChange={e => setEditForm(f => ({ ...f, emoji: e.target.value }))}
-                      style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 22, padding: "6px" }} placeholder="😀"/>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>Name</div>
-                    <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                      onKeyDown={e => e.key === "Enter" && saveEdit()}
-                      style={inputStyle} autoFocus/>
-                  </div>
-                </div>
-                <div style={{ marginBottom: 12 }}>
-                  <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 6 }}>Farbe</div>
-                  <ColorDots selected={editForm.color} onSelect={(hex) => setEditForm(f => ({ ...f, color: hex }))} size={22}/>
-                </div>
-                <button onClick={saveEdit} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Speichern</button>
-              </div>
-            )}
-          </SwipeToDelete>
-        );
-      })}
+            <button onClick={() => removeCat(catType, i)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><Icon name="trash" size={16} color={T.expense}/></button>
+          </div>
+          {colorPickerIdx === i && (
+            <div style={{ background: T.glassCard, backdropFilter: T.glassBlur, borderRadius: 10, padding: "10px 14px", marginBottom: 6, marginTop: -2, border: `1px solid ${T.glassBorder}` }}>
+              <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 6 }}>Farbe für „{catName(cat)}"</div>
+              <ColorDots selected={catColorVal(cat)} onSelect={(hex) => updateColor(catType, i, hex)} size={22}/>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -542,7 +514,7 @@ function RecurringPage({ data, setData, T, styles }) {
   const { inputStyle, selectStyle, labelStyle, btnPrimary, btnSecondary, chipStyle, glassCardStyle } = styles;
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
-  const emptyForm = { type: "expense", category: "", amount: "", description: "", startMonth: String(getToday().month), startYear: String(getToday().year), cycle: "1", endMonth: "", endYear: "", hasEnd: false };
+  const emptyForm = { type: "expense", category: "", amount: "", description: "", startMonth: String(getToday().month), startYear: String(getToday().year), cycle: "1" };
   const [form, setForm] = useState(emptyForm);
   const catsByType = (t) => t === "income" ? data.categories.income : data.categories.expense;
 
@@ -554,7 +526,7 @@ function RecurringPage({ data, setData, T, styles }) {
 
   const openEdit = (r) => {
     setEditId(r.id);
-    setForm({ type: r.type, category: r.category, amount: String(r.amount), description: r.description, startMonth: String(r.startMonth), startYear: String(r.startYear), cycle: String(r.cycle), hasEnd: r.endYear != null, endMonth: r.endMonth != null ? String(r.endMonth) : "", endYear: r.endYear != null ? String(r.endYear) : "" });
+    setForm({ type: r.type, category: r.category, amount: String(r.amount), description: r.description, startMonth: String(r.startMonth), startYear: String(r.startYear), cycle: String(r.cycle) });
     setShowForm(true);
   };
 
@@ -566,7 +538,7 @@ function RecurringPage({ data, setData, T, styles }) {
 
   const saveRecurring = () => {
     if (!form.amount || !form.category) return;
-    const parsed = { ...form, amount: parseFloat(form.amount), startMonth: parseInt(form.startMonth), startYear: parseInt(form.startYear), cycle: parseInt(form.cycle), endMonth: form.hasEnd && form.endMonth !== "" ? parseInt(form.endMonth) : null, endYear: form.hasEnd && form.endYear !== "" ? parseInt(form.endYear) : null };
+    const parsed = { ...form, amount: parseFloat(form.amount), startMonth: parseInt(form.startMonth), startYear: parseInt(form.startYear), cycle: parseInt(form.cycle) };
     if (editId) {
       setData(prev => ({ ...prev, recurring: prev.recurring.map(r => r.id === editId ? { ...r, ...parsed } : r) }));
     } else {
@@ -617,23 +589,6 @@ function RecurringPage({ data, setData, T, styles }) {
           <select value={form.cycle} onChange={e => setForm(f => ({ ...f, cycle: e.target.value }))} style={selectStyle}>
             {cycles.map(c => <option key={c.v} value={c.v}>{c.l}</option>)}
           </select>
-          <div style={{ marginTop: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: T.textSecondary, cursor: "pointer" }}>
-              <input type="checkbox" checked={form.hasEnd} onChange={e => setForm(f => ({ ...f, hasEnd: e.target.checked }))} style={{ accentColor: T.accent }}/>
-              Enddatum festlegen
-            </label>
-          </div>
-          {form.hasEnd && (
-            <div style={{ display: "flex", gap: 8 }}>
-              <div style={{ flex: 1 }}><label style={labelStyle}>Endmonat</label>
-                <select value={form.endMonth} onChange={e => setForm(f => ({ ...f, endMonth: e.target.value }))} style={selectStyle}>
-                  <option value="">Wählen...</option>
-                  {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
-                </select></div>
-              <div style={{ flex: 1 }}><label style={labelStyle}>Endjahr</label>
-                <input type="number" value={form.endYear} onChange={e => setForm(f => ({ ...f, endYear: e.target.value }))} style={inputStyle} placeholder={String(getToday().year + 1)}/></div>
-            </div>
-          )}
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <button onClick={saveRecurring} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
             {editId && <button onClick={() => deleteRecurring(editId)} style={{ ...btnSecondary, flex: "0 0 auto", color: T.expense, borderColor: `${T.expense}40` }}>Löschen</button>}
@@ -643,20 +598,20 @@ function RecurringPage({ data, setData, T, styles }) {
       )}
       {data.recurring.map(r => {
         const cn = { 1: "Monatlich", 2: "Alle 2 Mo.", 3: "Vierteljährlich", 6: "Halbjährlich", 12: "Jährlich" }[r.cycle] || `Alle ${r.cycle} Mo.`;
-        const endStr = r.endYear != null ? ` → ${new Date(r.endYear, r.endMonth || 0).toLocaleString("de-DE", { month: "short", year: "numeric" })}` : "";
         const isEditing = editId === r.id && showForm;
         return (
-          <SwipeToDelete key={r.id} onDelete={() => deleteRecurring(r.id)} T={T}>
-            <div onClick={() => openEdit(r)} style={{ ...glassCardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", cursor: "pointer", border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border, transition: "all .15s", borderRadius: 14 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <div>
-                  <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600 }}>{r.description || r.category}</div>
-                  <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{r.category} · {cn} · ab {new Date(r.startYear, r.startMonth).toLocaleString("de-DE", { month: "short", year: "numeric" })}{endStr}</div>
-                </div>
+          <div key={r.id} onClick={() => openEdit(r)} style={{ ...glassCardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", marginBottom: 6, cursor: "pointer", border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border, transition: "all .15s" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <div>
+                <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600 }}>{r.description || r.category}</div>
+                <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{r.category} · {cn} · ab {new Date(r.startYear, r.startMonth).toLocaleString("de-DE", { month: "short", year: "numeric" })}</div>
               </div>
-              <span style={{ fontSize: 15, fontWeight: 700, color: r.type === "income" ? T.income : T.expense }}>{fmt(r.amount)}</span>
             </div>
-          </SwipeToDelete>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: r.type === "income" ? T.income : T.expense }}>{fmt(r.amount)}</span>
+              <button onClick={(e) => { e.stopPropagation(); deleteRecurring(r.id); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 4 }}><Icon name="trash" size={16} color={T.expense}/></button>
+            </div>
+          </div>
         );
       })}
     </div>
@@ -1135,257 +1090,6 @@ function PredictionPage({ data, T, styles }) {
   );
 }
 
-// ─── Budget Page ─────────────────────────────────────────
-function BudgetPage({ data, setData, monthEntries, T, styles }) {
-  const { inputStyle, labelStyle, btnPrimary, btnSecondary, glassCardStyle, chipStyle, selectStyle } = styles;
-  const [newCat, setNewCat] = useState("");
-  const [newAmount, setNewAmount] = useState("");
-  const budgets = data.budgets || {};
-  const expenseCats = data.categories.expense || [];
-
-  const addBudget = () => {
-    if (!newCat || !newAmount) return;
-    setData(prev => ({ ...prev, budgets: { ...prev.budgets, [newCat]: parseFloat(newAmount) } }));
-    setNewCat(""); setNewAmount("");
-  };
-  const removeBudget = (cat) => {
-    setData(prev => { const b = { ...prev.budgets }; delete b[cat]; return { ...prev, budgets: b }; });
-  };
-  const updateBudget = (cat, val) => {
-    setData(prev => ({ ...prev, budgets: { ...prev.budgets, [cat]: parseFloat(val) || 0 } }));
-  };
-
-  const catsWithBudget = Object.entries(budgets).map(([cat, limit]) => {
-    const spent = monthEntries.filter(e => e.type === "expense" && e.category === cat).reduce((s, e) => s + e.amount, 0);
-    const pct = limit > 0 ? Math.min((spent / limit) * 100, 150) : 0;
-    return { cat, limit, spent, pct, remaining: limit - spent };
-  }).sort((a, b) => b.pct - a.pct);
-
-  const availableCats = expenseCats.filter(c => !budgets[catName(c)]);
-
-  return (
-    <div style={{ padding: "0 16px 100px" }}>
-      <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Monatsbudgets</h2>
-
-      {catsWithBudget.length > 0 && catsWithBudget.map(({ cat, limit, spent, pct, remaining }) => {
-        const overBudget = remaining < 0;
-        const warn = pct >= 80 && pct < 100;
-        const barColor = overBudget ? T.expense : warn ? T.warning : T.income;
-        const emoji = (() => { const found = expenseCats.find(c => catName(c) === cat); return found ? catEmoji(found) : ""; })();
-        return (
-          <div key={cat} style={{ ...glassCardStyle, padding: "14px 16px", marginBottom: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary }}>{emoji && <span style={{ marginRight: 6 }}>{emoji}</span>}{cat}</span>
-              <button onClick={() => removeBudget(cat)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}>
-                <Icon name="x" size={14} color={T.textMuted}/>
-              </button>
-            </div>
-            <div style={{ height: 8, background: `${T.textMuted}20`, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
-              <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, background: barColor, borderRadius: 4, transition: "width .5s" }}/>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-              <span style={{ color: T.textSecondary }}>{fmt(spent)} von {fmt(limit)}</span>
-              <span style={{ color: overBudget ? T.expense : warn ? T.warning : T.income, fontWeight: 600 }}>
-                {overBudget ? `${fmt(Math.abs(remaining))} über Budget!` : `${fmt(remaining)} übrig`}
-              </span>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <input type="number" value={limit} onChange={e => updateBudget(cat, e.target.value)} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12, width: 120 }}/>
-            </div>
-          </div>
-        );
-      })}
-
-      {availableCats.length > 0 && (
-        <div style={{ ...glassCardStyle, padding: 14, marginTop: 16, border: `1px solid ${T.accent}30` }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: T.textPrimary, marginBottom: 10 }}>Budget hinzufügen</div>
-          <select value={newCat} onChange={e => setNewCat(e.target.value)} style={{ ...selectStyle, marginBottom: 8 }}>
-            <option value="">Kategorie wählen...</option>
-            {availableCats.map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
-          </select>
-          <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }} placeholder="Monatliches Limit (€)"/>
-          <button onClick={addBudget} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Budget setzen</button>
-        </div>
-      )}
-
-      {catsWithBudget.length === 0 && availableCats.length === 0 && (
-        <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Erstelle zuerst Ausgaben-Kategorien</div>
-      )}
-    </div>
-  );
-}
-
-// ─── Search Page ─────────────────────────────────────────
-function SearchPage({ data, openEdit, onDeleteEntry, emojiLookup, colorLookup, T, styles }) {
-  const { inputStyle, selectStyle, chipStyle, glassCardStyle } = styles;
-  const [query, setQuery] = useState("");
-  const [filterType, setFilterType] = useState("all"); // all | income | expense
-  const [filterCat, setFilterCat] = useState("");
-  const [sortBy, setSortBy] = useState("date"); // date | amount
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [showFilters, setShowFilters] = useState(false);
-
-  const allCats = [...(data.categories.income || []), ...(data.categories.expense || [])];
-  const uniqueCats = [...new Set(allCats.map(c => catName(c)))];
-
-  const results = useMemo(() => {
-    let filtered = data.entries;
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      filtered = filtered.filter(e => (e.description || "").toLowerCase().includes(q) || (e.category || "").toLowerCase().includes(q));
-    }
-    if (filterType !== "all") filtered = filtered.filter(e => e.type === filterType);
-    if (filterCat) filtered = filtered.filter(e => e.category === filterCat);
-    if (dateFrom) filtered = filtered.filter(e => e.date >= dateFrom);
-    if (dateTo) filtered = filtered.filter(e => e.date <= dateTo);
-    if (sortBy === "date") filtered = [...filtered].sort((a, b) => new Date(b.date) - new Date(a.date));
-    else filtered = [...filtered].sort((a, b) => b.amount - a.amount);
-    return filtered;
-  }, [data.entries, query, filterType, filterCat, sortBy, dateFrom, dateTo]);
-
-  const totalIncome = results.filter(e => e.type === "income").reduce((s, e) => s + e.amount, 0);
-  const totalExpense = results.filter(e => e.type === "expense").reduce((s, e) => s + e.amount, 0);
-
-  return (
-    <div style={{ padding: "0 16px 100px" }}>
-      <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Suche & Filter</h2>
-
-      <div style={{ position: "relative", marginBottom: 12 }}>
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Beschreibung oder Kategorie suchen..." style={{ ...inputStyle, paddingLeft: 36 }}/>
-        <svg viewBox="0 0 24 24" style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, fill: "none", stroke: T.textMuted, strokeWidth: 2 }}>
-          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-        </svg>
-      </div>
-
-      <div style={{ display: "flex", gap: 6, marginBottom: 12, flexWrap: "wrap" }}>
-        <button onClick={() => setFilterType("all")} style={chipStyle(filterType === "all")}>Alle</button>
-        <button onClick={() => setFilterType("income")} style={chipStyle(filterType === "income")}>Einnahmen</button>
-        <button onClick={() => setFilterType("expense")} style={chipStyle(filterType === "expense")}>Ausgaben</button>
-        <button onClick={() => setShowFilters(!showFilters)} style={{ ...chipStyle(showFilters), marginLeft: "auto" }}>
-          {showFilters ? "Filter ▲" : "Filter ▼"}
-        </button>
-      </div>
-
-      {showFilters && (
-        <div style={{ ...glassCardStyle, padding: 12, marginBottom: 12 }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>Von</div>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12 }}/>
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>Bis</div>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12 }}/>
-            </div>
-          </div>
-          <div style={{ marginBottom: 8 }}>
-            <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>Kategorie</div>
-            <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={{ ...selectStyle, padding: "6px 10px", fontSize: 12 }}>
-              <option value="">Alle Kategorien</option>
-              {uniqueCats.map(c => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-          <div>
-            <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>Sortierung</div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button onClick={() => setSortBy("date")} style={chipStyle(sortBy === "date")}>Datum</button>
-              <button onClick={() => setSortBy("amount")} style={chipStyle(sortBy === "amount")}>Betrag</button>
-            </div>
-          </div>
-          {(dateFrom || dateTo || filterCat) && (
-            <button onClick={() => { setDateFrom(""); setDateTo(""); setFilterCat(""); }} style={{ marginTop: 8, background: "none", border: "none", color: T.accent, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Filter zurücksetzen</button>
-          )}
-        </div>
-      )}
-
-      <div style={{ ...glassCardStyle, padding: "10px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-        <span style={{ color: T.textSecondary }}>{results.length} Ergebnis{results.length !== 1 ? "se" : ""}</span>
-        <span><span style={{ color: T.income, fontWeight: 600 }}>+{fmt(totalIncome)}</span> <span style={{ color: T.textMuted, margin: "0 4px" }}>|</span> <span style={{ color: T.expense, fontWeight: 600 }}>−{fmt(totalExpense)}</span></span>
-      </div>
-
-      {results.length === 0 ? (
-        <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Keine Einträge gefunden</div>
-      ) : results.slice(0, 50).map(e => (
-        <SwipeToDelete key={e.id} onDelete={() => onDeleteEntry(e.id)} T={T}>
-          <EntryItem e={e} onClick={() => openEdit(e)} emojiLookup={emojiLookup} colorLookup={colorLookup} T={T}/>
-        </SwipeToDelete>
-      ))}
-      {results.length > 50 && <div style={{ color: T.textMuted, fontSize: 12, textAlign: "center", padding: 16 }}>Zeige 50 von {results.length} Ergebnissen. Nutze Filter um einzugrenzen.</div>}
-    </div>
-  );
-}
-
-// ─── Swipe-to-Delete Wrapper (universal) ─────────────────
-const SwipeToDelete = ({ onDelete, children, T, disabled }) => {
-  const ref = useRef(null);
-  const startX = useRef(0);
-  const currentX = useRef(0);
-  const isSwiping = useRef(false);
-  const isOpen = useRef(false);
-
-  if (disabled) return <div style={{ marginBottom: 6 }}>{children}</div>;
-
-  const handleTouchStart = (ev) => {
-    startX.current = ev.touches[0].clientX;
-    currentX.current = isOpen.current ? -90 : 0;
-    isSwiping.current = false;
-  };
-  const handleTouchMove = (ev) => {
-    const base = isOpen.current ? -90 : 0;
-    const diff = ev.touches[0].clientX - startX.current + base;
-    if (diff < -5) {
-      isSwiping.current = true;
-      currentX.current = Math.max(diff, -90);
-      if (ref.current) { ref.current.style.transition = "none"; ref.current.style.transform = `translateX(${currentX.current}px)`; }
-    } else if (isOpen.current && diff > base) {
-      isSwiping.current = true;
-      currentX.current = Math.min(ev.touches[0].clientX - startX.current + base, 0);
-      if (ref.current) { ref.current.style.transition = "none"; ref.current.style.transform = `translateX(${currentX.current}px)`; }
-    }
-  };
-  const handleTouchEnd = () => {
-    if (!ref.current) return;
-    ref.current.style.transition = "transform .25s ease";
-    if (currentX.current < -45) {
-      ref.current.style.transform = "translateX(-90px)";
-      isOpen.current = true;
-    } else {
-      ref.current.style.transform = "translateX(0)";
-      isOpen.current = false;
-      setTimeout(() => { isSwiping.current = false; }, 50);
-    }
-  };
-  const handleClickCapture = (ev) => {
-    if (isSwiping.current) { ev.stopPropagation(); ev.preventDefault(); }
-  };
-
-  return (
-    <div style={{ position: "relative", overflow: "hidden", borderRadius: 14, marginBottom: 6 }}>
-      <div style={{
-        position: "absolute", right: 0, top: 0, bottom: 0, width: 90,
-        background: `linear-gradient(135deg, ${T.expense}, #ff6b35)`,
-        display: "flex", alignItems: "center", justifyContent: "center",
-        borderRadius: "0 14px 14px 0"
-      }}>
-        <button onClick={(ev) => { ev.stopPropagation(); onDelete(); }} style={{
-          background: "none", border: "none", cursor: "pointer", color: "#fff",
-          fontSize: 11, fontWeight: 700, display: "flex", flexDirection: "column",
-          alignItems: "center", gap: 3, padding: 8
-        }}>
-          <Icon name="trash" size={20} color="#fff"/>
-          Löschen
-        </button>
-      </div>
-      <div ref={ref} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
-        onClickCapture={handleClickCapture}
-        style={{ position: "relative", zIndex: 1, transform: "translateX(0)", transition: "transform .25s ease" }}>
-        {children}
-      </div>
-    </div>
-  );
-};
-
 // ─── Entry Modal ──────────────────────────────────────────
 function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, viewMonth, viewYear, T, styles }) {
   const { inputStyle, selectStyle, labelStyle, btnPrimary, btnSecondary, chipStyle } = styles;
@@ -1484,9 +1188,6 @@ export default function BudgetPlanner() {
 
   const handleLogout = async () => {
     await signOut(auth);
-    // Lokale Daten löschen für Sicherheit auf geteilten Geräten
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
-    setData(defaultData());
     setUserId(null);
     setUserInfo(null);
     setSyncStatus("connecting");
@@ -1544,12 +1245,8 @@ export default function BudgetPlanner() {
     let ne = [];
     data.recurring.forEach(rec => {
       const sY = parseInt(rec.startYear), sM = parseInt(rec.startMonth), cy = parseInt(rec.cycle) || 1;
-      const hasEnd = rec.endYear != null && rec.endYear !== "";
-      const eY = hasEnd ? parseInt(rec.endYear) : null;
-      const eM = hasEnd ? parseInt(rec.endMonth || 0) : null;
       let cY = sY, cM = sM;
       while (cY < now.year || (cY === now.year && cM <= now.month)) {
-        if (hasEnd && (cY > eY || (cY === eY && cM > eM))) break;
         const key = `${rec.id}_${cY}_${cM}`;
         if (!applied[key]) { applied[key] = true; ne.push({ id: uid(), type: rec.type, category: rec.category, amount: parseFloat(rec.amount), description: rec.description + " (wiederkehrend)", date: dateStr(cY, cM, 1) }); }
         cM += cy; while (cM > 11) { cM -= 12; cY++; }
@@ -1651,31 +1348,9 @@ export default function BudgetPlanner() {
     return found ? catColorVal(found) : CAT_COLORS[0].hex;
   };
 
-  // ─── Swipe gestures for month navigation ─────────────────
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-  const handlePageTouchStart = (ev) => { touchStartX.current = ev.touches[0].clientX; touchStartY.current = ev.touches[0].clientY; };
-  const handlePageTouchEnd = (ev) => {
-    const dx = ev.changedTouches[0].clientX - touchStartX.current;
-    const dy = ev.changedTouches[0].clientY - touchStartY.current;
-    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-      if (dx > 0) prevMonth(); else nextMonth();
-    }
-  };
-
-  // ─── Budget warnings for home page ──────────────────────
-  const budgetWarnings = useMemo(() => {
-    const budgets = data.budgets || {};
-    return Object.entries(budgets).map(([cat, limit]) => {
-      const spent = monthEntries.filter(e => e.type === "expense" && e.category === cat).reduce((s, e) => s + e.amount, 0);
-      const pct = limit > 0 ? (spent / limit) * 100 : 0;
-      return { cat, limit, spent, pct, remaining: limit - spent };
-    }).filter(b => b.pct >= 75).sort((a, b) => b.pct - a.pct);
-  }, [data.budgets, monthEntries]);
-
   // ─── HOME ───────────────────────────────────────
   const renderHome = () => (
-    <div style={{ padding: "0 16px 100px" }} onTouchStart={handlePageTouchStart} onTouchEnd={handlePageTouchEnd}>
+    <div style={{ padding: "0 16px 100px" }}>
       <MonthNav viewMonth={viewMonth} viewYear={viewYear} prevMonth={prevMonth} nextMonth={nextMonth} goToday={goToday} T={T} btnSecondary={btnSecondary}/>
       {/* Balance Card */}
       <div style={{
@@ -1710,41 +1385,10 @@ export default function BudgetPlanner() {
           </div>
         ); })}
       </div>
-      {/* Budget Warnings */}
-      {budgetWarnings.length > 0 && (
-        <div style={{ ...glassCardStyle, padding: "14px 16px", marginBottom: 16, border: `1px solid ${T.warning}30` }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ fontSize: 16 }}>⚠️</span> Budget-Warnungen
-            </div>
-            <button onClick={() => setPage("budget")} style={{ background: "none", border: "none", color: T.accent, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Verwalten →</button>
-          </div>
-          {budgetWarnings.slice(0, 3).map(b => {
-            const overBudget = b.remaining < 0;
-            return (
-              <div key={b.cat} style={{ marginBottom: 6 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 3 }}>
-                  <span style={{ color: T.textSecondary }}>{b.cat}</span>
-                  <span style={{ color: overBudget ? T.expense : T.warning, fontWeight: 600 }}>
-                    {overBudget ? `${fmt(Math.abs(b.remaining))} drüber` : `${fmt(b.remaining)} übrig`}
-                  </span>
-                </div>
-                <div style={{ height: 4, background: `${T.textMuted}20`, borderRadius: 2, overflow: "hidden" }}>
-                  <div style={{ height: "100%", width: `${Math.min(b.pct, 100)}%`, background: overBudget ? T.expense : T.warning, borderRadius: 2 }}/>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
       {/* Recent Entries */}
       <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>Letzte Einträge</div>
       {monthEntries.length === 0 ? <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 24 }}>Keine Einträge in diesem Monat</div>
-      : [...monthEntries].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10).map(e => (
-        <SwipeToDelete key={e.id} onDelete={() => handleDeleteEntry(e.id)} T={T}>
-          <EntryItem e={e} onClick={() => openEdit(e)} emojiLookup={emojiLookup} colorLookup={colorLookup} T={T}/>
-        </SwipeToDelete>
-      ))}
+      : [...monthEntries].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10).map(e => <EntryItem key={e.id} e={e} onClick={() => openEdit(e)} emojiLookup={emojiLookup} colorLookup={colorLookup} T={T}/>)}
     </div>
   );
 
@@ -1882,8 +1526,6 @@ export default function BudgetPlanner() {
 
   const menuItems = [
     { id: "home", icon: "home", label: "Übersicht" },
-    { id: "budget", icon: "wallet", label: "Budgets" },
-    { id: "search", icon: "search", label: "Suche & Filter" },
     { id: "income-analysis", icon: "trendUp", label: "Einnahmen-Analyse" },
     { id: "expense-analysis", icon: "trendDown", label: "Ausgaben-Analyse" },
     { id: "categories", icon: "tag", label: "Kategorien" },
@@ -1897,8 +1539,6 @@ export default function BudgetPlanner() {
   const renderPage = () => {
     switch (page) {
       case "home": return renderHome();
-      case "budget": return <BudgetPage key="budget" data={data} setData={setData} monthEntries={monthEntries} T={T} styles={styles}/>;
-      case "search": return <SearchPage key="search" data={data} openEdit={openEdit} onDeleteEntry={handleDeleteEntry} emojiLookup={emojiLookup} colorLookup={colorLookup} T={T} styles={styles}/>;
       case "income-analysis": return renderAnalysis("income");
       case "expense-analysis": return renderAnalysis("expense");
       case "categories": return <CategoriesPage key="categories" data={data} setData={setData} T={T} styles={styles}/>;
