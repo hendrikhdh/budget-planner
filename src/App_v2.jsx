@@ -103,7 +103,6 @@ const themes = {
     exportText: "#00f0ff",
     // Glassmorphism is subtle in dark mode
     glassCard: "rgba(255,255,255,0.03)",
-    glassCardOpaque: "#141428",
     glassBorder: "rgba(255,255,255,0.06)",
     glassBlur: "blur(12px)",
     glassShadow: "0 8px 32px rgba(0,0,0,0.3)",
@@ -151,7 +150,6 @@ const themes = {
     exportText: "#7c3aed",
     // Glassmorphism — bright frosted glass
     glassCard: "rgba(255,255,255,0.42)",
-    glassCardOpaque: "rgba(240,238,250,0.97)",
     glassBorder: "rgba(255,255,255,0.65)",
     glassBlur: "blur(22px)",
     glassShadow: "0 8px 32px rgba(100,80,160,0.07), 0 2px 8px rgba(100,80,160,0.04)",
@@ -385,7 +383,7 @@ const EntryItem = ({ e, onClick, emojiLookup, colorLookup, T }) => {
   const dotColor = colorLookup ? colorLookup(e.category, e.type) : CAT_COLORS[0].hex;
   return (
     <div onClick={onClick} style={{
-      background: T.glassCard, backdropFilter: T.glassBlur, borderRadius: 12,
+      background: T.glassCard, backdropFilter: T.glassBlur, borderRadius: 12, marginBottom: 6,
       border: `1px solid ${T.glassBorder}`, boxShadow: T.glassShadow,
       display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", cursor: "pointer",
       transition: "all .15s"
@@ -638,6 +636,7 @@ function RecurringPage({ data, setData, T, styles }) {
           )}
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <button onClick={saveRecurring} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
+            {editId && <button onClick={() => deleteRecurring(editId)} style={{ ...btnSecondary, flex: "0 0 auto", color: T.expense, borderColor: `${T.expense}40` }}>Löschen</button>}
             <button onClick={closeForm} style={{ ...btnSecondary, flex: "0 0 auto" }}>Abbrechen</button>
           </div>
         </div>
@@ -729,6 +728,7 @@ function SavingsPage({ data, setData, T, styles }) {
           <input type="number" value={form.saved} onChange={e => setForm(f => ({ ...f, saved: e.target.value }))} style={inputStyle} placeholder="0"/>
           <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
             <button onClick={saveGoal} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
+            {editId && <button onClick={() => deleteGoal(editId)} style={{ ...btnSecondary, flex: "0 0 auto", color: T.expense, borderColor: `${T.expense}40` }}>Löschen</button>}
             <button onClick={closeForm} style={{ ...btnSecondary, flex: "0 0 auto" }}>Abbrechen</button>
           </div>
         </div>
@@ -1379,7 +1379,7 @@ const SwipeToDelete = ({ onDelete, children, T, disabled }) => {
       </div>
       <div ref={ref} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
         onClickCapture={handleClickCapture}
-        style={{ position: "relative", zIndex: 1, transform: "translateX(0)", transition: "transform .25s ease", background: T.glassCardOpaque || T.bg, borderRadius: 14 }}>
+        style={{ position: "relative", zIndex: 1, transform: "translateX(0)", transition: "transform .25s ease" }}>
         {children}
       </div>
     </div>
@@ -1416,6 +1416,7 @@ function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, vi
       <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStyle}/>
       <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
         <button onClick={save} style={btnPrimary}>{isEdit ? "Speichern" : "Hinzufügen"}</button>
+        {isEdit && <button onClick={() => onDelete(editEntry.id)} style={{ ...btnSecondary, color: T.expense, borderColor: `${T.expense}40`, flex: "0 0 auto" }}>Löschen</button>}
       </div>
     </Modal>
   );
@@ -1425,15 +1426,13 @@ function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, vi
 //  MAIN APP
 // ════════════════════════════════════════════════════════════
 export default function BudgetPlanner() {
-  const [data, setData] = useState(null); // null = not loaded yet
+  const [data, setData] = useState(() => loadLocal() || defaultData());
   const [userId, setUserId] = useState(null);
   const [userInfo, setUserInfo] = useState(null); // { name, email, photo }
   const [authReady, setAuthReady] = useState(false);
-  const [dataReady, setDataReady] = useState(false);
   const [syncStatus, setSyncStatus] = useState("connecting"); // "connecting" | "synced" | "offline"
   const [loginError, setLoginError] = useState(null);
   const skipNextSync = useRef(false);
-  const firestoreLoaded = useRef(false);
   const [viewMonth, setViewMonth] = useState(getToday().month);
   const [viewYear, setViewYear] = useState(getToday().year);
   const [page, setPage] = useState("home");
@@ -1486,10 +1485,8 @@ export default function BudgetPlanner() {
   const handleLogout = async () => {
     await signOut(auth);
     // Lokale Daten löschen für Sicherheit auf geteilten Geräten
-    if (userId) { try { localStorage.removeItem(STORAGE_KEY + "_" + userId); } catch {} }
-    setData(null);
-    setDataReady(false);
-    firestoreLoaded.current = false;
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    setData(defaultData());
     setUserId(null);
     setUserInfo(null);
     setSyncStatus("connecting");
@@ -1497,66 +1494,35 @@ export default function BudgetPlanner() {
 
   // ─── Firestore Realtime Listener ──────────────────────────
   useEffect(() => {
-    if (!userId) { setDataReady(false); firestoreLoaded.current = false; return; }
-    const userLocalKey = STORAGE_KEY + "_" + userId;
+    if (!userId) return;
     const docRef = doc(db, "budgets", userId);
     const unsub = onSnapshot(docRef, (snap) => {
       if (snap.exists()) {
         const remote = snap.data().data;
         if (remote) {
-          const parsed = typeof remote === "string" ? JSON.parse(remote) : remote;
           skipNextSync.current = true;
-          setData({ ...emptyData(), ...parsed, budgets: parsed.budgets || {} });
-          try { localStorage.setItem(userLocalKey, JSON.stringify(parsed)); } catch {}
+          setData(typeof remote === "string" ? JSON.parse(remote) : remote);
         }
-      } else {
-        // Kein Dokument in Firestore → prüfe ob lokale Daten für diesen User existieren
-        const local = (() => { try { const r = localStorage.getItem(userLocalKey); return r ? JSON.parse(r) : null; } catch { return null; } })();
-        if (local) {
-          setData({ ...emptyData(), ...local });
-        } else {
-          // Wirklich erster Login ever → leere Daten (keine Demo-Daten)
-          const fresh = emptyData();
-          fresh.categories = { income: [...DEFAULT_INCOME_CATS], expense: [...DEFAULT_EXPENSE_CATS] };
-          setData(fresh);
-        }
-        // Sofort in Firestore schreiben, damit die Daten beim nächsten Login da sind
-        firestoreLoaded.current = true;
-        setDataReady(true);
-        setSyncStatus("synced");
-        return;
       }
-      firestoreLoaded.current = true;
-      setDataReady(true);
       setSyncStatus("synced");
-    }, () => {
-      // Offline → lokale Daten laden
-      const local = (() => { try { const r = localStorage.getItem(userLocalKey); return r ? JSON.parse(r) : null; } catch { return null; } })();
-      setData(local || emptyData());
-      firestoreLoaded.current = true;
-      setDataReady(true);
-      setSyncStatus("offline");
-    });
+    }, () => setSyncStatus("offline"));
     return unsub;
   }, [userId]);
 
   // ─── Save to Firestore + localStorage on data change ──────
   const saveTimeout = useRef(null);
   useEffect(() => {
-    if (!data || !userId || !firestoreLoaded.current) return;
-    // Per-User localStorage
-    const userLocalKey = STORAGE_KEY + "_" + userId;
-    try { localStorage.setItem(userLocalKey, JSON.stringify(data)); } catch {}
+    saveLocal(data);
+    if (!userId) return;
     if (skipNextSync.current) { skipNextSync.current = false; return; }
     // Debounce Firestore writes (500ms)
     clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(() => {
       const docRef = doc(db, "budgets", userId);
-      setDoc(docRef, { data: JSON.stringify(data), updatedAt: new Date().toISOString() }, { merge: true })
+      setDoc(docRef, { data: JSON.stringify(data), updatedAt: new Date().toISOString() })
         .then(() => setSyncStatus("synced"))
         .catch(() => setSyncStatus("offline"));
     }, 500);
-    return () => clearTimeout(saveTimeout.current);
   }, [data, userId]);
 
   // ─── Themed Form Styles ─────────────────────────────────
@@ -1573,11 +1539,10 @@ export default function BudgetPlanner() {
 
   // Apply recurring
   useEffect(() => {
-    if (!data) return;
     const now = getToday();
     const applied = { ...data.appliedRecurring };
     let ne = [];
-    (data.recurring || []).forEach(rec => {
+    data.recurring.forEach(rec => {
       const sY = parseInt(rec.startYear), sM = parseInt(rec.startMonth), cy = parseInt(rec.cycle) || 1;
       const hasEnd = rec.endYear != null && rec.endYear !== "";
       const eY = hasEnd ? parseInt(rec.endYear) : null;
@@ -1590,10 +1555,10 @@ export default function BudgetPlanner() {
         cM += cy; while (cM > 11) { cM -= 12; cY++; }
       }
     });
-    if (ne.length > 0) setData(prev => prev ? ({ ...prev, entries: [...prev.entries, ...ne], appliedRecurring: applied }) : prev);
-  }, [data && data.recurring]);
+    if (ne.length > 0) setData(prev => ({ ...prev, entries: [...prev.entries, ...ne], appliedRecurring: applied }));
+  }, [data.recurring]);
 
-  const monthEntries = useMemo(() => data ? data.entries.filter(e => { const d = new Date(e.date); return d.getMonth() === viewMonth && d.getFullYear() === viewYear; }) : [], [data && data.entries, viewMonth, viewYear]);
+  const monthEntries = useMemo(() => data.entries.filter(e => { const d = new Date(e.date); return d.getMonth() === viewMonth && d.getFullYear() === viewYear; }), [data.entries, viewMonth, viewYear]);
   const income = useMemo(() => monthEntries.filter(e => e.type === "income").reduce((s, e) => s + e.amount, 0), [monthEntries]);
   const expense = useMemo(() => monthEntries.filter(e => e.type === "expense").reduce((s, e) => s + e.amount, 0), [monthEntries]);
   const balance = income - expense;
@@ -1700,14 +1665,13 @@ export default function BudgetPlanner() {
 
   // ─── Budget warnings for home page ──────────────────────
   const budgetWarnings = useMemo(() => {
-    if (!data) return [];
     const budgets = data.budgets || {};
     return Object.entries(budgets).map(([cat, limit]) => {
       const spent = monthEntries.filter(e => e.type === "expense" && e.category === cat).reduce((s, e) => s + e.amount, 0);
       const pct = limit > 0 ? (spent / limit) * 100 : 0;
       return { cat, limit, spent, pct, remaining: limit - spent };
     }).filter(b => b.pct >= 75).sort((a, b) => b.pct - a.pct);
-  }, [data && data.budgets, monthEntries]);
+  }, [data.budgets, monthEntries]);
 
   // ─── HOME ───────────────────────────────────────
   const renderHome = () => (
@@ -2034,7 +1998,7 @@ export default function BudgetPlanner() {
   }
 
   // ─── Loading Screen ──────────────────────────────────────
-  if (!authReady || (authReady && userId && !dataReady)) {
+  if (!authReady) {
     return (
       <div style={{
         fontFamily: "'JetBrains Mono', monospace", background: T.bgGradient,
@@ -2043,7 +2007,7 @@ export default function BudgetPlanner() {
         <style>{`body { margin: 0; background: ${T.bg}; }`}</style>
         <div style={{ textAlign: "center" }}>
           <div style={{ fontSize: 36, marginBottom: 12 }}>💰</div>
-          <div style={{ fontSize: 14 }}>{userId ? "Daten werden geladen..." : "Laden..."}</div>
+          <div style={{ fontSize: 14 }}>Laden...</div>
         </div>
       </div>
     );
