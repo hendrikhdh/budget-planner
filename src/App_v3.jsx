@@ -1317,92 +1317,69 @@ function SearchPage({ data, openEdit, onDeleteEntry, emojiLookup, colorLookup, T
 }
 
 // ─── Swipe-to-Delete Wrapper (universal) ─────────────────
-// Mobile: Weit nach links swipen (>50% der Breite) und loslassen = löschen.
-//         Zurückswipen zur Ausgangsposition = abbrechen.
-// Desktop: Kein Swipe, stattdessen Löschbutton im onClick-Modal.
 const SwipeToDelete = ({ onDelete, children, T, disabled }) => {
   const ref = useRef(null);
-  const containerRef = useRef(null);
   const startX = useRef(0);
   const currentX = useRef(0);
   const isSwiping = useRef(false);
-  const containerWidth = useRef(300);
-  const [deleteReady, setDeleteReady] = useState(false);
-  // Threshold: wie weit muss man swipen um zu löschen (Anteil der Breite)
-  const DELETE_THRESHOLD = 0.45;
+  const isOpen = useRef(false);
 
   if (disabled) return <div style={{ marginBottom: 6 }}>{children}</div>;
 
   const handleTouchStart = (ev) => {
     startX.current = ev.touches[0].clientX;
-    currentX.current = 0;
+    currentX.current = isOpen.current ? -90 : 0;
     isSwiping.current = false;
-    setDeleteReady(false);
-    if (containerRef.current) containerWidth.current = containerRef.current.offsetWidth;
   };
   const handleTouchMove = (ev) => {
-    const diff = ev.touches[0].clientX - startX.current;
-    if (diff < -8) {
+    const base = isOpen.current ? -90 : 0;
+    const diff = ev.touches[0].clientX - startX.current + base;
+    if (diff < -5) {
       isSwiping.current = true;
-      // Maximale Swipe-Distanz: 80% der Containerbreite
-      const maxSwipe = containerWidth.current * 0.8;
-      currentX.current = Math.max(diff, -maxSwipe);
-      if (ref.current) {
-        ref.current.style.transition = "none";
-        ref.current.style.transform = `translateX(${currentX.current}px)`;
-      }
-      // Visuelles Feedback: ab Schwellwert zeigen wir "Loslassen = Löschen"
-      const swipeRatio = Math.abs(currentX.current) / containerWidth.current;
-      setDeleteReady(swipeRatio >= DELETE_THRESHOLD);
+      currentX.current = Math.max(diff, -90);
+      if (ref.current) { ref.current.style.transition = "none"; ref.current.style.transform = `translateX(${currentX.current}px)`; }
+    } else if (isOpen.current && diff > base) {
+      isSwiping.current = true;
+      currentX.current = Math.min(ev.touches[0].clientX - startX.current + base, 0);
+      if (ref.current) { ref.current.style.transition = "none"; ref.current.style.transform = `translateX(${currentX.current}px)`; }
     }
   };
   const handleTouchEnd = () => {
     if (!ref.current) return;
-    const swipeRatio = Math.abs(currentX.current) / containerWidth.current;
-    if (swipeRatio >= DELETE_THRESHOLD) {
-      // Weit genug geswipt UND losgelassen → löschen mit Animation
-      ref.current.style.transition = "transform .3s ease, opacity .3s ease";
-      ref.current.style.transform = `translateX(-${containerWidth.current}px)`;
-      ref.current.style.opacity = "0";
-      setTimeout(() => onDelete(), 300);
+    ref.current.style.transition = "transform .25s ease";
+    if (currentX.current < -45) {
+      ref.current.style.transform = "translateX(-90px)";
+      isOpen.current = true;
     } else {
-      // Nicht weit genug → zurück zur Ausgangsposition
-      ref.current.style.transition = "transform .3s ease";
       ref.current.style.transform = "translateX(0)";
+      isOpen.current = false;
       setTimeout(() => { isSwiping.current = false; }, 50);
     }
-    setDeleteReady(false);
   };
   const handleClickCapture = (ev) => {
     if (isSwiping.current) { ev.stopPropagation(); ev.preventDefault(); }
   };
 
   return (
-    <div ref={containerRef} style={{ position: "relative", overflow: "hidden", borderRadius: 14, marginBottom: 6 }}>
-      {/* Hintergrund: zeigt Lösch-Indikator */}
+    <div style={{ position: "relative", overflow: "hidden", borderRadius: 14, marginBottom: 6 }}>
       <div style={{
-        position: "absolute", right: 0, top: 0, bottom: 0, left: 0,
-        background: deleteReady
-          ? `linear-gradient(135deg, ${T.expense}, #ff3333)`
-          : `linear-gradient(135deg, ${T.expense}90, #ff6b35aa)`,
-        display: "flex", alignItems: "center", justifyContent: "flex-end",
-        paddingRight: 24, borderRadius: 14,
-        transition: "background .2s"
+        position: "absolute", right: 0, top: 0, bottom: 0, width: 90,
+        background: `linear-gradient(135deg, ${T.expense}, #ff6b35)`,
+        display: "flex", alignItems: "center", justifyContent: "center",
+        borderRadius: "0 14px 14px 0"
       }}>
-        <div style={{
-          color: "#fff", fontSize: 12, fontWeight: 700,
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-          opacity: isSwiping.current ? 1 : 0.6,
-          transition: "opacity .2s, transform .2s",
-          transform: deleteReady ? "scale(1.15)" : "scale(1)"
+        <button onClick={(ev) => { ev.stopPropagation(); onDelete(); }} style={{
+          background: "none", border: "none", cursor: "pointer", color: "#fff",
+          fontSize: 11, fontWeight: 700, display: "flex", flexDirection: "column",
+          alignItems: "center", gap: 3, padding: 8
         }}>
-          <Icon name="trash" size={22} color="#fff"/>
-          {deleteReady ? "Loslassen" : "← Weiter"}
-        </div>
+          <Icon name="trash" size={20} color="#fff"/>
+          Löschen
+        </button>
       </div>
       <div ref={ref} onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
         onClickCapture={handleClickCapture}
-        style={{ position: "relative", zIndex: 1, transform: "translateX(0)", transition: "transform .3s ease", background: T.glassCardOpaque || T.bg, borderRadius: 14 }}>
+        style={{ position: "relative", zIndex: 1, transform: "translateX(0)", transition: "transform .25s ease", background: T.glassCardOpaque || T.bg, borderRadius: 14 }}>
         {children}
       </div>
     </div>
@@ -1440,17 +1417,6 @@ function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, vi
       <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
         <button onClick={save} style={btnPrimary}>{isEdit ? "Speichern" : "Hinzufügen"}</button>
       </div>
-      {isEdit && (
-        <button onClick={() => { if (window.confirm("Diesen Eintrag wirklich löschen?")) onDelete(editEntry.id); }} style={{
-          marginTop: 12, padding: "10px 18px", background: "none",
-          border: `1px solid ${T.expense}40`, borderRadius: 10,
-          color: T.expense, fontSize: 13, fontWeight: 600, cursor: "pointer",
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
-          transition: "all .2s"
-        }}>
-          <Icon name="trash" size={16} color={T.expense}/> Eintrag löschen
-        </button>
-      )}
     </Modal>
   );
 }
@@ -1530,59 +1496,43 @@ export default function BudgetPlanner() {
   };
 
   // ─── Firestore Realtime Listener ──────────────────────────
-  // Firestore ist die Single Source of Truth. Beim Login wird IMMER
-  // zuerst der Firestore-Stand geladen. Lokale Daten dienen nur als
-  // Offline-Fallback und werden NIE über neuere Remote-Daten geschrieben.
-  const remoteTimestamp = useRef(null); // Letzter bekannter Remote-Zeitstempel
-  const initialLoadDone = useRef(false); // Verhindert Race Conditions beim ersten Laden
-
   useEffect(() => {
-    if (!userId) { setDataReady(false); firestoreLoaded.current = false; initialLoadDone.current = false; remoteTimestamp.current = null; return; }
+    if (!userId) { setDataReady(false); firestoreLoaded.current = false; return; }
     const userLocalKey = STORAGE_KEY + "_" + userId;
     const docRef = doc(db, "budgets", userId);
     const unsub = onSnapshot(docRef, (snap) => {
       if (snap.exists()) {
-        const snapData = snap.data();
-        const remote = snapData.data;
-        const remoteUpdatedAt = snapData.updatedAt || null;
+        const remote = snap.data().data;
         if (remote) {
           const parsed = typeof remote === "string" ? JSON.parse(remote) : remote;
-          // Remote-Zeitstempel merken um Konflikte zu vermeiden
-          remoteTimestamp.current = remoteUpdatedAt;
           skipNextSync.current = true;
           setData({ ...emptyData(), ...parsed, budgets: parsed.budgets || {} });
-          // Lokalen Cache aktualisieren mit Zeitstempel
-          try { localStorage.setItem(userLocalKey, JSON.stringify({ _ts: remoteUpdatedAt, ...parsed })); } catch {}
+          try { localStorage.setItem(userLocalKey, JSON.stringify(parsed)); } catch {}
         }
       } else {
-        // Kein Dokument in Firestore → erster Login auf diesem Account
-        // Lokale Daten NUR verwenden wenn kein Remote-Dokument existiert
-        if (!initialLoadDone.current) {
+        // Kein Dokument in Firestore → prüfe ob lokale Daten für diesen User existieren
+        const local = (() => { try { const r = localStorage.getItem(userLocalKey); return r ? JSON.parse(r) : null; } catch { return null; } })();
+        if (local) {
+          setData({ ...emptyData(), ...local });
+        } else {
+          // Wirklich erster Login ever → leere Daten (keine Demo-Daten)
           const fresh = emptyData();
           fresh.categories = { income: [...DEFAULT_INCOME_CATS], expense: [...DEFAULT_EXPENSE_CATS] };
           setData(fresh);
-          remoteTimestamp.current = null;
         }
+        // Sofort in Firestore schreiben, damit die Daten beim nächsten Login da sind
+        firestoreLoaded.current = true;
+        setDataReady(true);
+        setSyncStatus("synced");
+        return;
       }
-      initialLoadDone.current = true;
       firestoreLoaded.current = true;
       setDataReady(true);
       setSyncStatus("synced");
     }, () => {
-      // Offline → lokale Daten laden als Fallback
-      if (!initialLoadDone.current) {
-        const local = (() => { try { const r = localStorage.getItem(userLocalKey); return r ? JSON.parse(r) : null; } catch { return null; } })();
-        if (local) {
-          const { _ts, ...rest } = local;
-          remoteTimestamp.current = _ts || null;
-          setData({ ...emptyData(), ...rest });
-        } else {
-          const fresh = emptyData();
-          fresh.categories = { income: [...DEFAULT_INCOME_CATS], expense: [...DEFAULT_EXPENSE_CATS] };
-          setData(fresh);
-        }
-        initialLoadDone.current = true;
-      }
+      // Offline → lokale Daten laden
+      const local = (() => { try { const r = localStorage.getItem(userLocalKey); return r ? JSON.parse(r) : null; } catch { return null; } })();
+      setData(local || emptyData());
       firestoreLoaded.current = true;
       setDataReady(true);
       setSyncStatus("offline");
@@ -1594,18 +1544,16 @@ export default function BudgetPlanner() {
   const saveTimeout = useRef(null);
   useEffect(() => {
     if (!data || !userId || !firestoreLoaded.current) return;
+    // Per-User localStorage
     const userLocalKey = STORAGE_KEY + "_" + userId;
-    const nowIso = new Date().toISOString();
-    // Lokalen Cache immer aktualisieren
-    try { localStorage.setItem(userLocalKey, JSON.stringify({ _ts: nowIso, ...data })); } catch {}
+    try { localStorage.setItem(userLocalKey, JSON.stringify(data)); } catch {}
     if (skipNextSync.current) { skipNextSync.current = false; return; }
     // Debounce Firestore writes (500ms)
     clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(() => {
       const docRef = doc(db, "budgets", userId);
-      const updatedAt = new Date().toISOString();
-      setDoc(docRef, { data: JSON.stringify(data), updatedAt }, { merge: true })
-        .then(() => { remoteTimestamp.current = updatedAt; setSyncStatus("synced"); })
+      setDoc(docRef, { data: JSON.stringify(data), updatedAt: new Date().toISOString() }, { merge: true })
+        .then(() => setSyncStatus("synced"))
         .catch(() => setSyncStatus("offline"));
     }, 500);
     return () => clearTimeout(saveTimeout.current);
