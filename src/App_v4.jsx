@@ -1320,7 +1320,7 @@ function SearchPage({ data, openEdit, onDeleteEntry, emojiLookup, colorLookup, T
 // Mobile: Weit nach links swipen (>50% der Breite) und loslassen = löschen.
 //         Zurückswipen zur Ausgangsposition = abbrechen.
 // Desktop: Kein Swipe, stattdessen Löschbutton im onClick-Modal.
-const SwipeToDelete = ({ onDelete, children, T, disabled, onSwipeActive }) => {
+const SwipeToDelete = ({ onDelete, children, T, disabled }) => {
   const ref = useRef(null);
   const containerRef = useRef(null);
   const startX = useRef(0);
@@ -1344,8 +1344,6 @@ const SwipeToDelete = ({ onDelete, children, T, disabled, onSwipeActive }) => {
     const diff = ev.touches[0].clientX - startX.current;
     if (diff < -8) {
       isSwiping.current = true;
-      // Signalisiere dem übergeordneten Container dass ein Eintrag geswipt wird
-      if (onSwipeActive) onSwipeActive();
       // Maximale Swipe-Distanz: 80% der Containerbreite
       const maxSwipe = containerWidth.current * 0.8;
       currentX.current = Math.max(diff, -maxSwipe);
@@ -1476,13 +1474,7 @@ export default function BudgetPlanner() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
   const [editEntry, setEditEntry] = useState(null);
-  const [theme, setTheme] = useState(() => {
-    // Systemeinstellung als Standard verwenden
-    if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      return "dark";
-    }
-    return "light";
-  });
+  const [theme, setTheme] = useState("light");
   const fileInputRef = useRef(null);
 
   const T = themes[theme];
@@ -1747,15 +1739,10 @@ export default function BudgetPlanner() {
   };
 
   // ─── Swipe gestures for month navigation ─────────────────
-  // entrySwipeActive wird von SwipeToDelete gesetzt wenn ein Eintrag
-  // gerade geswipt wird → Monatswechsel soll dann NICHT ausgelöst werden
-  const entrySwipeActive = useRef(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const handlePageTouchStart = (ev) => { touchStartX.current = ev.touches[0].clientX; touchStartY.current = ev.touches[0].clientY; };
   const handlePageTouchEnd = (ev) => {
-    // Wenn gerade ein Eintrag geswipt wurde, Monatswechsel ignorieren
-    if (entrySwipeActive.current) { entrySwipeActive.current = false; return; }
     const dx = ev.changedTouches[0].clientX - touchStartX.current;
     const dy = ev.changedTouches[0].clientY - touchStartY.current;
     if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) {
@@ -1842,7 +1829,7 @@ export default function BudgetPlanner() {
       <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>Letzte Einträge</div>
       {monthEntries.length === 0 ? <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 24 }}>Keine Einträge in diesem Monat</div>
       : [...monthEntries].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10).map(e => (
-        <SwipeToDelete key={e.id} onDelete={() => handleDeleteEntry(e.id)} T={T} onSwipeActive={() => { entrySwipeActive.current = true; }}>
+        <SwipeToDelete key={e.id} onDelete={() => handleDeleteEntry(e.id)} T={T}>
           <EntryItem e={e} onClick={() => openEdit(e)} emojiLookup={emojiLookup} colorLookup={colorLookup} T={T}/>
         </SwipeToDelete>
       ))}
