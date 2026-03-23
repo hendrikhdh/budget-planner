@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 # Wird bei jedem Push auf master automatisch ausgeführt
 on:
   push:
-    branches: [master]
+    branches: [main]
   # Erlaubt auch manuelles Auslösen im GitHub UI (Actions → Run workflow)
   workflow_dispatch:
 
