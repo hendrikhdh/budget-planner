@@ -4,15 +4,15 @@ import { getAuth, signInWithPopup, signInWithRedirect, getRedirectResult, Google
 import { getFirestore, doc, setDoc, onSnapshot } from "firebase/firestore";
 
 // ─── Firebase Config ──────────────────────────────────────
-// WICHTIG: Ersetze diese Werte mit deiner eigenen Firebase-Konfiguration!
-// Siehe Anleitung Schritt 1.
+// Zugangsdaten werden aus .env.local geladen (niemals im Code hart kodieren!).
+// Vorlage: siehe .env.example
 const firebaseConfig = {
-  apiKey: "AIzaSyDNscpBdHFmj9QSkS6UhwYsgQDCqiGlz4g",
-  authDomain: "budget-planner-pro-37aca.firebaseapp.com",
-  projectId: "budget-planner-pro-37aca",
-  storageBucket: "budget-planner-pro-37aca.firebasestorage.app",
-  messagingSenderId: "170846034818",
-  appId: "1:170846034818:web:3a04b89240bb1e3caa8d9b"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
 const app = initializeApp(firebaseConfig);
@@ -21,7 +21,7 @@ const db = getFirestore(app);
 const googleProvider = new GoogleAuthProvider();
 
 // ─── Helpers ───────────────────────────────────────────────
-const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+const uid = () => crypto.randomUUID().replace(/-/g, "");
 const fmt = (n) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
 const monthName = (m, y) => new Date(y, m).toLocaleString("de-DE", { month: "long", year: "numeric" });
 const getToday = () => { const d = new Date(); return { month: d.getMonth(), year: d.getFullYear(), day: d.getDate() }; };
@@ -1713,17 +1713,42 @@ export default function BudgetPlanner() {
 
   const importJSON = (ev) => {
     const file = ev.target.files[0]; if (!file) return;
+    // Dateigröße begrenzen (max. 5 MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setImportMsg({ type: "error", text: "Die Datei ist zu groß (max. 5 MB)." });
+      ev.target.value = "";
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const imp = JSON.parse(e.target.result);
-        if (imp.entries) {
-          setData({ ...emptyData(), ...imp });
-          const n = imp.entries.length;
-          setImportMsg({ type: "success", title: "Import erfolgreich", text: `${n} Einträge geladen aus „${file.name}".` });
-        } else {
+        // Grundlegende Strukturvalidierung
+        if (!imp || typeof imp !== "object" || Array.isArray(imp)) {
           setImportMsg({ type: "error", text: "Die Datei enthält keine gültigen Budget-Daten." });
+          return;
         }
+        if (!Array.isArray(imp.entries)) {
+          setImportMsg({ type: "error", text: "Die Datei enthält keine gültigen Budget-Daten." });
+          return;
+        }
+        // Jeden Eintrag validieren (Typ, Betrag, Datum)
+        const validTypes = ["income", "expense"];
+        const validEntries = imp.entries.filter(entry =>
+          entry && typeof entry === "object" &&
+          validTypes.includes(entry.type) &&
+          typeof entry.amount === "number" && isFinite(entry.amount) && entry.amount >= 0 && entry.amount <= 1_000_000 &&
+          typeof entry.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(entry.date) &&
+          typeof entry.category === "string" && entry.category.length <= 100 &&
+          (entry.description === undefined || (typeof entry.description === "string" && entry.description.length <= 500))
+        );
+        if (validEntries.length === 0 && imp.entries.length > 0) {
+          setImportMsg({ type: "error", text: "Keine gültigen Einträge gefunden. Bitte prüfe das Dateiformat." });
+          return;
+        }
+        const sanitized = { ...emptyData(), ...imp, entries: validEntries };
+        setData(sanitized);
+        setImportMsg({ type: "success", title: "Import erfolgreich", text: `${validEntries.length} Einträge geladen aus „${file.name}".` });
       } catch {
         setImportMsg({ type: "error", text: "Ungültige JSON-Datei. Bitte prüfe das Dateiformat." });
       }

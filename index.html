@@ -3,6 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta http-equiv="Content-Security-Policy" content="
+      default-src 'self';
+      script-src 'self';
+      style-src 'self' 'unsafe-inline';
+      connect-src 'self'
+        https://*.googleapis.com
+        https://*.firebaseio.com
+        wss://*.firebaseio.com
+        https://identitytoolkit.googleapis.com
+        https://securetoken.googleapis.com;
+      img-src 'self' data: https://lh3.googleusercontent.com https:;
+      frame-src https://budget-planner-pro-37aca.firebaseapp.com https://accounts.google.com;
+      font-src 'self';
+      object-src 'none';
+      base-uri 'self';
+    " />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
     <title>Budget Planer</title>
