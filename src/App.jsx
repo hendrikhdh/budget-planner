@@ -161,15 +161,47 @@ const themes = {
 // ─── Storage (Firebase Firestore) ─────────────────────────
 // Lokaler Fallback für den Zeitraum bis Firebase geladen hat
 const STORAGE_KEY = "budget-planner-data";
-const loadLocal = () => {
+const LS_SESSION_KEY = "budget-planner-enc-key";
+
+// AES-GCM Verschlüsselung für localStorage
+// Der Schlüssel liegt nur im sessionStorage – er wird beim Schließen des Tabs gelöscht.
+const _getSessionKey = async () => {
+  const stored = sessionStorage.getItem(LS_SESSION_KEY);
+  if (stored) {
+    const raw = Uint8Array.from(atob(stored), c => c.charCodeAt(0));
+    return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
+  }
+  const key = await crypto.subtle.generateKey({ name: "AES-GCM", length: 256 }, true, ["encrypt", "decrypt"]);
+  const exported = await crypto.subtle.exportKey("raw", key);
+  sessionStorage.setItem(LS_SESSION_KEY, btoa(String.fromCharCode(...new Uint8Array(exported))));
+  return key;
+};
+
+const encryptLS = async (plaintext) => {
+  const key = await _getSessionKey();
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const encoded = new TextEncoder().encode(plaintext);
+  const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+  const combined = new Uint8Array(12 + encrypted.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encrypted), 12);
+  return btoa(String.fromCharCode(...combined));
+};
+
+const decryptLS = async (ciphertext) => {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const key = await _getSessionKey();
+    const data = Uint8Array.from(atob(ciphertext), c => c.charCodeAt(0));
+    const iv = data.slice(0, 12);
+    const encrypted = data.slice(12);
+    const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, encrypted);
+    return new TextDecoder().decode(decrypted);
   } catch { return null; }
 };
-const saveLocal = (d) => {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(d)); } catch {}
-};
+
+// dead-code stubs – nicht mehr verwendet
+const loadLocal = () => null;
+const saveLocal = () => {};
 const emptyData = () => ({
   entries: [], recurring: [],
   categories: { income: [], expense: [] },
@@ -1559,8 +1591,10 @@ export default function BudgetPlanner() {
           remoteTimestamp.current = remoteUpdatedAt;
           skipNextSync.current = true;
           setData({ ...emptyData(), ...parsed, budgets: parsed.budgets || {} });
-          // Lokalen Cache aktualisieren mit Zeitstempel
-          try { localStorage.setItem(userLocalKey, JSON.stringify({ _ts: remoteUpdatedAt, ...parsed })); } catch {}
+          // Lokalen Cache verschlüsselt aktualisieren
+          encryptLS(JSON.stringify({ _ts: remoteUpdatedAt, ...parsed }))
+            .then(enc => localStorage.setItem(userLocalKey, enc))
+            .catch(() => {});
         }
       } else {
         // Kein Dokument in Firestore → erster Login auf diesem Account
@@ -1576,10 +1610,17 @@ export default function BudgetPlanner() {
       firestoreLoaded.current = true;
       setDataReady(true);
       setSyncStatus("synced");
-    }, () => {
-      // Offline → lokale Daten laden als Fallback
+    }, async () => {
+      // Offline → lokale Daten (verschlüsselt) laden als Fallback
       if (!initialLoadDone.current) {
-        const local = (() => { try { const r = localStorage.getItem(userLocalKey); return r ? JSON.parse(r) : null; } catch { return null; } })();
+        const local = await (async () => {
+          try {
+            const r = localStorage.getItem(userLocalKey);
+            if (!r) return null;
+            const plain = await decryptLS(r);
+            return plain ? JSON.parse(plain) : null;
+          } catch { return null; }
+        })();
         if (local) {
           const { _ts, ...rest } = local;
           remoteTimestamp.current = _ts || null;
@@ -1604,8 +1645,10 @@ export default function BudgetPlanner() {
     if (!data || !userId || !firestoreLoaded.current) return;
     const userLocalKey = STORAGE_KEY + "_" + userId;
     const nowIso = new Date().toISOString();
-    // Lokalen Cache immer aktualisieren
-    try { localStorage.setItem(userLocalKey, JSON.stringify({ _ts: nowIso, ...data })); } catch {}
+    // Lokalen Cache verschlüsselt aktualisieren
+    encryptLS(JSON.stringify({ _ts: nowIso, ...data }))
+      .then(enc => localStorage.setItem(userLocalKey, enc))
+      .catch(() => {});
     if (skipNextSync.current) { skipNextSync.current = false; return; }
     // Debounce Firestore writes (500ms)
     clearTimeout(saveTimeout.current);
