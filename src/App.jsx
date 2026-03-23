@@ -199,67 +199,79 @@ const decryptLS = async (ciphertext) => {
   } catch { return null; }
 };
 
-// dead-code stubs – nicht mehr verwendet
-const loadLocal = () => null;
-const saveLocal = () => {};
 const emptyData = () => ({
   entries: [], recurring: [],
   categories: { income: [], expense: [] },
   savingsGoals: [], appliedRecurring: {},
-  budgets: {}
+  budgets: {}, settings: {}
 });
-const defaultData = () => ({
-  entries: [
-    { id: "t01", type: "income", category: "Gehalt", amount: 3200, description: "Monatsgehalt", date: "2026-01-02" },
-    { id: "t02", type: "income", category: "Freelance", amount: 450, description: "Webdesign-Projekt", date: "2026-01-10" },
-    { id: "t03", type: "expense", category: "Miete", amount: 850, description: "Miete Januar", date: "2026-01-01" },
-    { id: "t04", type: "expense", category: "Lebensmittel", amount: 312, description: "Wocheneinkäufe", date: "2026-01-05" },
-    { id: "t05", type: "expense", category: "Transport", amount: 89, description: "Monatsticket VRR", date: "2026-01-03" },
-    { id: "t06", type: "expense", category: "Abonnements", amount: 45.97, description: "Netflix + Spotify + iCloud", date: "2026-01-01" },
-    { id: "t07", type: "expense", category: "Restaurant", amount: 78, description: "Abendessen Altstadt", date: "2026-01-17" },
-    { id: "t08", type: "expense", category: "Kleidung", amount: 129, description: "Winterjacke Sale", date: "2026-01-12" },
-    { id: "t09", type: "expense", category: "Gesundheit", amount: 35, description: "Apotheke", date: "2026-01-20" },
-    { id: "t10", type: "expense", category: "Unterhaltung", amount: 60, description: "Konzertkarten", date: "2026-01-25" },
-    { id: "t11", type: "expense", category: "Bildung", amount: 24.99, description: "Udemy Kurs", date: "2026-01-15" },
-    { id: "t12", type: "income", category: "Gehalt", amount: 3200, description: "Monatsgehalt", date: "2026-02-02" },
-    { id: "t13", type: "income", category: "Investitionen", amount: 120, description: "Dividende ETF", date: "2026-02-15" },
-    { id: "t14", type: "income", category: "Geschenke", amount: 50, description: "Geburtstagsgeld", date: "2026-02-22" },
-    { id: "t15", type: "expense", category: "Miete", amount: 850, description: "Miete Februar", date: "2026-02-01" },
-    { id: "t16", type: "expense", category: "Lebensmittel", amount: 287, description: "Wocheneinkäufe", date: "2026-02-06" },
-    { id: "t17", type: "expense", category: "Transport", amount: 89, description: "Monatsticket VRR", date: "2026-02-02" },
-    { id: "t18", type: "expense", category: "Abonnements", amount: 45.97, description: "Netflix + Spotify + iCloud", date: "2026-02-01" },
-    { id: "t19", type: "expense", category: "Restaurant", amount: 145, description: "Valentinstag Dinner", date: "2026-02-14" },
-    { id: "t20", type: "expense", category: "Unterhaltung", amount: 42, description: "Kino + Popcorn", date: "2026-02-08" },
-    { id: "t21", type: "expense", category: "Gesundheit", amount: 90, description: "Zahnarzt Zuzahlung", date: "2026-02-18" },
-    { id: "t22", type: "expense", category: "Sonstiges", amount: 65, description: "Geschenk Valentinstag", date: "2026-02-13" },
-    { id: "t23", type: "expense", category: "Lebensmittel", amount: 58, description: "Asiamarkt", date: "2026-02-20" },
-    { id: "t24", type: "income", category: "Gehalt", amount: 3200, description: "Monatsgehalt", date: "2026-03-02" },
-    { id: "t25", type: "income", category: "Freelance", amount: 800, description: "Logo-Design Auftrag", date: "2026-03-08" },
-    { id: "t26", type: "income", category: "Sonstiges", amount: 35, description: "Kleinanzeigen Verkauf", date: "2026-03-05" },
-    { id: "t27", type: "expense", category: "Miete", amount: 850, description: "Miete März", date: "2026-03-01" },
-    { id: "t28", type: "expense", category: "Lebensmittel", amount: 295, description: "Wocheneinkäufe", date: "2026-03-04" },
-    { id: "t29", type: "expense", category: "Transport", amount: 89, description: "Monatsticket VRR", date: "2026-03-02" },
-    { id: "t30", type: "expense", category: "Abonnements", amount: 45.97, description: "Netflix + Spotify + iCloud", date: "2026-03-01" },
-    { id: "t31", type: "expense", category: "Restaurant", amount: 52, description: "Brunch mit Freunden", date: "2026-03-09" },
-    { id: "t32", type: "expense", category: "Bildung", amount: 39.99, description: "Fachbuch TypeScript", date: "2026-03-06" },
-    { id: "t33", type: "expense", category: "Lebensmittel", amount: 47, description: "Wochenmarkt Carlsplatz", date: "2026-03-11" },
-    { id: "t34", type: "expense", category: "Unterhaltung", amount: 35, description: "Bowling-Abend", date: "2026-03-07" },
-    { id: "t35", type: "expense", category: "Kleidung", amount: 79, description: "Sneakers", date: "2026-03-10" },
-  ],
-  recurring: [
-    { id: "r01", type: "expense", category: "Miete", amount: 850, description: "Miete", startMonth: 0, startYear: 2026, cycle: 1, endMonth: null, endYear: null },
-    { id: "r02", type: "expense", category: "Abonnements", amount: 45.97, description: "Streaming-Abos", startMonth: 0, startYear: 2026, cycle: 1, endMonth: null, endYear: null },
-    { id: "r03", type: "income", category: "Gehalt", amount: 3200, description: "Monatsgehalt", startMonth: 0, startYear: 2026, cycle: 1, endMonth: null, endYear: null },
-  ],
-  categories: { income: [...DEFAULT_INCOME_CATS], expense: [...DEFAULT_EXPENSE_CATS] },
-  savingsGoals: [
-    { id: "sg1", name: "Urlaub Japan", target: 3000, saved: 1250, emoji: "✈️" },
-    { id: "sg2", name: "Notgroschen", target: 5000, saved: 3800, emoji: "🛡️" },
-    { id: "sg3", name: "Neues MacBook", target: 2000, saved: 620, emoji: "💻" },
-  ],
-  appliedRecurring: {},
-  budgets: { "Lebensmittel": 400, "Restaurant": 150, "Unterhaltung": 100, "Kleidung": 150 }
-});
+
+// Beispieldaten – Monate werden dynamisch auf die letzten 3 Monate gesetzt
+const defaultData = () => {
+  const now = new Date();
+  // m0 = aktueller Monat, m1 = Vormonat, m2 = Vorvormonat
+  const m = [0, 1, 2].map(offset => {
+    const d = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+    return { month: d.getMonth(), year: d.getFullYear() };
+  });
+  const d = (monthOffset, day) => {
+    const { month, year } = m[monthOffset];
+    return `${year}-${pad(month + 1)}-${pad(day)}`;
+  };
+  return {
+    entries: [
+      { id: "t01", type: "income",  category: "Gehalt",        amount: 3200,  description: "Monatsgehalt",          date: d(2, 2)  },
+      { id: "t02", type: "income",  category: "Freelance",     amount: 450,   description: "Webdesign-Projekt",      date: d(2, 10) },
+      { id: "t03", type: "expense", category: "Miete",         amount: 850,   description: "Miete",                  date: d(2, 1)  },
+      { id: "t04", type: "expense", category: "Lebensmittel",  amount: 312,   description: "Wocheneinkäufe",        date: d(2, 5)  },
+      { id: "t05", type: "expense", category: "Transport",     amount: 89,    description: "Monatsticket VRR",       date: d(2, 3)  },
+      { id: "t06", type: "expense", category: "Abonnements",   amount: 45.97, description: "Netflix + Spotify + iCloud", date: d(2, 1) },
+      { id: "t07", type: "expense", category: "Restaurant",    amount: 78,    description: "Abendessen Altstadt",    date: d(2, 17) },
+      { id: "t08", type: "expense", category: "Kleidung",      amount: 129,   description: "Winterjacke Sale",       date: d(2, 12) },
+      { id: "t09", type: "expense", category: "Gesundheit",    amount: 35,    description: "Apotheke",               date: d(2, 20) },
+      { id: "t10", type: "expense", category: "Unterhaltung",  amount: 60,    description: "Konzertkarten",          date: d(2, 25) },
+      { id: "t11", type: "expense", category: "Bildung",       amount: 24.99, description: "Udemy Kurs",             date: d(2, 15) },
+      { id: "t12", type: "income",  category: "Gehalt",        amount: 3200,  description: "Monatsgehalt",           date: d(1, 2)  },
+      { id: "t13", type: "income",  category: "Investitionen", amount: 120,   description: "Dividende ETF",          date: d(1, 15) },
+      { id: "t14", type: "income",  category: "Geschenke",     amount: 50,    description: "Geburtstagsgeld",        date: d(1, 22) },
+      { id: "t15", type: "expense", category: "Miete",         amount: 850,   description: "Miete",                  date: d(1, 1)  },
+      { id: "t16", type: "expense", category: "Lebensmittel",  amount: 287,   description: "Wocheneinkäufe",        date: d(1, 6)  },
+      { id: "t17", type: "expense", category: "Transport",     amount: 89,    description: "Monatsticket VRR",       date: d(1, 2)  },
+      { id: "t18", type: "expense", category: "Abonnements",   amount: 45.97, description: "Netflix + Spotify + iCloud", date: d(1, 1) },
+      { id: "t19", type: "expense", category: "Restaurant",    amount: 110,   description: "Dinner mit Freunden",    date: d(1, 14) },
+      { id: "t20", type: "expense", category: "Unterhaltung",  amount: 42,    description: "Kino + Popcorn",         date: d(1, 8)  },
+      { id: "t21", type: "expense", category: "Gesundheit",    amount: 90,    description: "Zahnarzt Zuzahlung",     date: d(1, 18) },
+      { id: "t22", type: "expense", category: "Sonstiges",     amount: 65,    description: "Geschenk",               date: d(1, 13) },
+      { id: "t23", type: "expense", category: "Lebensmittel",  amount: 58,    description: "Asiamarkt",              date: d(1, 20) },
+      { id: "t24", type: "income",  category: "Gehalt",        amount: 3200,  description: "Monatsgehalt",           date: d(0, 2)  },
+      { id: "t25", type: "income",  category: "Freelance",     amount: 800,   description: "Logo-Design Auftrag",    date: d(0, 8)  },
+      { id: "t26", type: "income",  category: "Sonstiges",     amount: 35,    description: "Kleinanzeigen Verkauf",  date: d(0, 5)  },
+      { id: "t27", type: "expense", category: "Miete",         amount: 850,   description: "Miete",                  date: d(0, 1)  },
+      { id: "t28", type: "expense", category: "Lebensmittel",  amount: 295,   description: "Wocheneinkäufe",        date: d(0, 4)  },
+      { id: "t29", type: "expense", category: "Transport",     amount: 89,    description: "Monatsticket VRR",       date: d(0, 2)  },
+      { id: "t30", type: "expense", category: "Abonnements",   amount: 45.97, description: "Netflix + Spotify + iCloud", date: d(0, 1) },
+      { id: "t31", type: "expense", category: "Restaurant",    amount: 52,    description: "Brunch mit Freunden",    date: d(0, 9)  },
+      { id: "t32", type: "expense", category: "Bildung",       amount: 39.99, description: "Fachbuch",               date: d(0, 6)  },
+      { id: "t33", type: "expense", category: "Lebensmittel",  amount: 47,    description: "Wochenmarkt",            date: d(0, 11) },
+      { id: "t34", type: "expense", category: "Unterhaltung",  amount: 35,    description: "Bowling-Abend",          date: d(0, 7)  },
+      { id: "t35", type: "expense", category: "Kleidung",      amount: 79,    description: "Sneakers",               date: d(0, 10) },
+    ],
+    recurring: [
+      { id: "r01", type: "expense", category: "Miete",       amount: 850,   description: "Miete",           startMonth: m[2].month, startYear: m[2].year, cycle: 1, endMonth: null, endYear: null },
+      { id: "r02", type: "expense", category: "Abonnements", amount: 45.97, description: "Streaming-Abos", startMonth: m[2].month, startYear: m[2].year, cycle: 1, endMonth: null, endYear: null },
+      { id: "r03", type: "income",  category: "Gehalt",      amount: 3200,  description: "Monatsgehalt",    startMonth: m[2].month, startYear: m[2].year, cycle: 1, endMonth: null, endYear: null },
+    ],
+    categories: { income: [...DEFAULT_INCOME_CATS], expense: [...DEFAULT_EXPENSE_CATS] },
+    savingsGoals: [
+      { id: "sg1", name: "Urlaub Japan",    target: 3000, saved: 1250, emoji: "✈️" },
+      { id: "sg2", name: "Notgroschen",     target: 5000, saved: 3800, emoji: "🛡️" },
+      { id: "sg3", name: "Neues MacBook",   target: 2000, saved: 620,  emoji: "💻" },
+    ],
+    appliedRecurring: {},
+    budgets: { "Lebensmittel": 400, "Restaurant": 150, "Unterhaltung": 100, "Kleidung": 150 },
+    settings: {}
+  };
+};
 
 // ─── Icons ────────────────────────────────────────────────
 const Icon = ({ name, size = 20, color = "currentColor" }) => {
@@ -287,6 +299,8 @@ const Icon = ({ name, size = 20, color = "currentColor" }) => {
     info: <><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></>,
     search: <><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></>,
     wallet: <><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h4v-4z"/></>,
+    bell: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
+    settings: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></>,
   };
   return <svg viewBox="0 0 24 24" style={s}>{p[name]}</svg>;
 };
@@ -1448,12 +1462,27 @@ function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, vi
   const { inputStyle, selectStyle, labelStyle, btnPrimary, btnSecondary, chipStyle } = styles;
   const isEdit = !!editEntry;
   const [form, setForm] = useState({ type: "expense", category: "", amount: "", description: "", date: dateStr(viewYear, viewMonth, getToday().day) });
+  const [errors, setErrors] = useState({});
   useEffect(() => {
     if (editEntry) setForm({ type: editEntry.type, category: editEntry.category, amount: String(editEntry.amount), description: editEntry.description, date: editEntry.date });
     else setForm({ type: "expense", category: "", amount: "", description: "", date: dateStr(viewYear, viewMonth, getToday().day) });
+    setErrors({});
   }, [editEntry, open, viewMonth, viewYear]);
   const catsByType = (t) => t === "income" ? categories.income : categories.expense;
-  const save = () => { if (!form.amount || !form.category || !form.date) return; onSave({ ...(editEntry || {}), ...form, amount: parseFloat(form.amount) }); };
+  const errorStyle = { fontSize: 11, color: T.expense, marginTop: 4, marginBottom: 4 };
+  const inputErr = (field) => ({ ...inputStyle, borderColor: errors[field] ? T.expense : inputStyle.borderColor });
+  const selectErr = (field) => ({ ...selectStyle, borderColor: errors[field] ? T.expense : selectStyle.borderColor });
+  const save = () => {
+    const errs = {};
+    if (!form.category) errs.category = "Bitte eine Kategorie auswählen.";
+    const amt = parseFloat(form.amount);
+    if (!form.amount || isNaN(amt) || amt <= 0) errs.amount = "Bitte einen gültigen Betrag größer als 0 eingeben.";
+    else if (amt > 1_000_000) errs.amount = "Betrag darf 1.000.000 € nicht überschreiten.";
+    if (!form.date) errs.date = "Bitte ein Datum auswählen.";
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
+    onSave({ ...(editEntry || {}), ...form, amount: amt });
+  };
   return (
     <Modal open={open} onClose={onClose} title={isEdit ? "Eintrag bearbeiten" : "Neuer Eintrag"} T={T}>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -1461,16 +1490,19 @@ function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, vi
         <button onClick={() => setForm(f => ({ ...f, type: "income", category: "" }))} style={chipStyle(form.type === "income")}>Einnahme</button>
       </div>
       <label style={labelStyle}>Kategorie</label>
-      <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={selectStyle}>
+      <select value={form.category} onChange={e => { setForm(f => ({ ...f, category: e.target.value })); setErrors(er => ({ ...er, category: null })); }} style={selectErr("category")}>
         <option value="">Kategorie wählen...</option>
         {catsByType(form.type).map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
       </select>
+      {errors.category && <div style={errorStyle}>⚠ {errors.category}</div>}
       <label style={labelStyle}>Betrag (€)</label>
-      <input type="number" inputMode="decimal" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={inputStyle} placeholder="0.00"/>
+      <input type="number" inputMode="decimal" value={form.amount} onChange={e => { setForm(f => ({ ...f, amount: e.target.value })); setErrors(er => ({ ...er, amount: null })); }} style={inputErr("amount")} placeholder="0.00"/>
+      {errors.amount && <div style={errorStyle}>⚠ {errors.amount}</div>}
       <label style={labelStyle}>Beschreibung</label>
       <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} style={inputStyle} placeholder="Wofür?"/>
       <label style={labelStyle}>Datum</label>
-      <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))} style={inputStyle}/>
+      <input type="date" value={form.date} onChange={e => { setForm(f => ({ ...f, date: e.target.value })); setErrors(er => ({ ...er, date: null })); }} style={inputErr("date")}/>
+      {errors.date && <div style={errorStyle}>⚠ {errors.date}</div>}
       <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
         <button onClick={save} style={btnPrimary}>{isEdit ? "Speichern" : "Hinzufügen"}</button>
       </div>
@@ -1486,6 +1518,130 @@ function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, vi
         </button>
       )}
     </Modal>
+  );
+}
+
+// ════════════════════════════════════════════════════════════
+//  SETTINGS PAGE
+// ════════════════════════════════════════════════════════════
+function SettingsPage({ data, setData, T, styles }) {
+  const { btnPrimary, glassCardStyle } = styles;
+  const settings = data.settings || {};
+  const [reminderEnabled, setReminderEnabled] = useState(!!settings.reminderEnabled);
+  const [reminderTime, setReminderTime] = useState(settings.reminderTime || "08:00");
+  const [notifPermission, setNotifPermission] = useState(
+    typeof Notification !== "undefined" ? Notification.permission : "default"
+  );
+  const [saved, setSaved] = useState(false);
+
+  const requestPermission = async () => {
+    if (typeof Notification === "undefined") return;
+    const perm = await Notification.requestPermission();
+    setNotifPermission(perm);
+    return perm;
+  };
+
+  const handleSave = async () => {
+    let perm = notifPermission;
+    if (reminderEnabled && perm !== "granted") {
+      perm = await requestPermission();
+      if (perm !== "granted") return;
+    }
+    setData(prev => ({ ...prev, settings: { ...(prev.settings || {}), reminderEnabled, reminderTime } }));
+    setSaved(true);
+    setTimeout(() => setSaved(false), 3000);
+  };
+
+  const toggleStyle = (active) => ({
+    position: "relative", display: "inline-flex", width: 44, height: 24, borderRadius: 12,
+    background: active ? T.accent : `${T.textMuted}40`, border: "none", cursor: "pointer",
+    transition: "background .2s", flexShrink: 0, padding: 0
+  });
+  const knobStyle = (active) => ({
+    position: "absolute", top: 3, left: active ? 23 : 3, width: 18, height: 18,
+    background: "#fff", borderRadius: "50%", transition: "left .2s",
+    boxShadow: "0 1px 4px rgba(0,0,0,0.3)"
+  });
+
+  const swSupported = "serviceWorker" in navigator;
+  const notifSupported = typeof Notification !== "undefined";
+
+  return (
+    <div style={{ padding: "0 16px 100px" }}>
+      <div style={{ fontSize: 20, fontWeight: 800, color: T.textPrimary, marginBottom: 20, marginTop: 8 }}>Einstellungen</div>
+
+      {/* Tägliche Erinnerung */}
+      <div style={{ ...glassCardStyle, padding: "20px", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <Icon name="bell" size={18} color={T.accent}/>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary }}>Tägliche Erinnerung</div>
+        </div>
+
+        {!swSupported || !notifSupported ? (
+          <div style={{ fontSize: 13, color: T.textMuted, padding: "10px 14px", background: `${T.textMuted}10`, borderRadius: 10, lineHeight: 1.5 }}>
+            Dein Browser unterstützt keine Push-Benachrichtigungen.
+          </div>
+        ) : (
+          <>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600 }}>Erinnerung aktivieren</div>
+                <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>Täglich erinnern, Einnahmen & Ausgaben einzutragen</div>
+              </div>
+              <button onClick={() => setReminderEnabled(v => !v)} style={toggleStyle(reminderEnabled)}>
+                <span style={knobStyle(reminderEnabled)}/>
+              </button>
+            </div>
+
+            {reminderEnabled && (
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ fontSize: 13, color: T.textSecondary, display: "block", marginBottom: 6 }}>Uhrzeit (24h-Format)</label>
+                <input
+                  type="time"
+                  value={reminderTime}
+                  onChange={e => setReminderTime(e.target.value)}
+                  style={{
+                    background: T.inputBg, border: `1px solid ${T.inputBorder}`, borderRadius: 10,
+                    color: T.inputText, fontSize: 20, fontWeight: 700, padding: "10px 14px",
+                    outline: "none", width: "100%", cursor: "pointer"
+                  }}
+                />
+              </div>
+            )}
+
+            {notifPermission === "denied" && (
+              <div style={{ fontSize: 12, color: T.expense, padding: "8px 12px", background: `${T.expense}10`, borderRadius: 8, marginBottom: 12, lineHeight: 1.5 }}>
+                ⚠ Benachrichtigungen sind im Browser blockiert. Bitte erlaube sie in den Browser-Einstellungen.
+              </div>
+            )}
+            {reminderEnabled && notifPermission === "default" && (
+              <div style={{ fontSize: 12, color: T.warning, padding: "8px 12px", background: `${T.warning}10`, borderRadius: 8, marginBottom: 12, lineHeight: 1.5 }}>
+                Beim Speichern wirst du nach der Berechtigung für Benachrichtigungen gefragt.
+              </div>
+            )}
+          </>
+        )}
+
+        <button
+          onClick={handleSave}
+          style={{ ...btnPrimary, marginTop: 4, display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}
+        >
+          {saved ? "✓ Gespeichert" : "Einstellungen speichern"}
+        </button>
+      </div>
+
+      {/* Info */}
+      <div style={{ ...glassCardStyle, padding: "16px 20px" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <Icon name="info" size={16} color={T.textMuted}/>
+          <div style={{ fontSize: 13, fontWeight: 600, color: T.textSecondary }}>Hinweis zur Erinnerung</div>
+        </div>
+        <div style={{ fontSize: 12, color: T.textMuted, lineHeight: 1.6 }}>
+          Die Erinnerung wird als Browser-Benachrichtigung angezeigt. Sie funktioniert solange der Browser geöffnet ist.
+          Für zuverlässige Hintergrund-Benachrichtigungen empfehlen wir, die App zum Home-Bildschirm hinzuzufügen (PWA).
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -1516,11 +1672,39 @@ export default function BudgetPlanner() {
     return "light";
   });
   const fileInputRef = useRef(null);
+  const swRef = useRef(null); // Service Worker registration
 
   const T = themes[theme];
   const isDark = theme === "dark";
 
   const balanceColor = (val) => val < 0 ? T.expense : val <= 500 ? T.warning : T.income;
+
+  // ─── Service Worker + Push Notifications ─────────────────
+  useEffect(() => {
+    if ("serviceWorker" in navigator) {
+      navigator.serviceWorker.register("/sw.js").then(reg => {
+        swRef.current = reg;
+      }).catch(() => {});
+    }
+  }, []);
+
+  // Reminder neu planen wenn Einstellungen sich ändern
+  const scheduleReminder = useCallback((settings) => {
+    if (!settings || !settings.reminderEnabled) return;
+    if (!swRef.current) return;
+    const [hour, minute] = (settings.reminderTime || "08:00").split(":").map(Number);
+    swRef.current.active?.postMessage({ type: "SCHEDULE_REMINDER", hour, minute });
+  }, []);
+
+  useEffect(() => {
+    if (!data) return;
+    const settings = data.settings || {};
+    if (settings.reminderEnabled && swRef.current) {
+      scheduleReminder(settings);
+    } else if (!settings.reminderEnabled && swRef.current) {
+      swRef.current.active?.postMessage({ type: "CANCEL_REMINDER" });
+    }
+  }, [data && (data.settings || {}).reminderEnabled, data && (data.settings || {}).reminderTime, swRef.current]);
 
   // ─── Firebase Auth (Google) ───────────────────────────────
   useEffect(() => {
@@ -1746,19 +1930,28 @@ export default function BudgetPlanner() {
   };
 
   const [importMsg, setImportMsg] = useState(null);
+  const importMsgTimer = useRef(null);
+  const showImportMsg = useCallback((msg) => {
+    if (importMsgTimer.current) clearTimeout(importMsgTimer.current);
+    setImportMsg(msg);
+    // Erfolgsmeldungen schließen sich nach 6 Sekunden automatisch
+    if (msg.type === "success") {
+      importMsgTimer.current = setTimeout(() => setImportMsg(null), 6000);
+    }
+  }, []);
   const [confirmReset, setConfirmReset] = useState(false);
 
   const handleReset = () => {
     setData(emptyData());
     setConfirmReset(false);
-    setImportMsg({ type: "success", title: "Daten gelöscht", text: "Alle Einträge, Kategorien, Sparziele und wiederkehrende Buchungen wurden gelöscht." });
+    showImportMsg({ type: "success", title: "Daten gelöscht", text: "Alle Einträge, Kategorien, Sparziele und wiederkehrende Buchungen wurden gelöscht." });
   };
 
   const importJSON = (ev) => {
     const file = ev.target.files[0]; if (!file) return;
     // Dateigröße begrenzen (max. 5 MB)
     if (file.size > 5 * 1024 * 1024) {
-      setImportMsg({ type: "error", text: "Die Datei ist zu groß (max. 5 MB)." });
+      showImportMsg({ type: "error", text: "Die Datei ist zu groß (max. 5 MB)." });
       ev.target.value = "";
       return;
     }
@@ -1768,11 +1961,11 @@ export default function BudgetPlanner() {
         const imp = JSON.parse(e.target.result);
         // Grundlegende Strukturvalidierung
         if (!imp || typeof imp !== "object" || Array.isArray(imp)) {
-          setImportMsg({ type: "error", text: "Die Datei enthält keine gültigen Budget-Daten." });
+          showImportMsg({ type: "error", text: "Die Datei enthält keine gültigen Budget-Daten." });
           return;
         }
         if (!Array.isArray(imp.entries)) {
-          setImportMsg({ type: "error", text: "Die Datei enthält keine gültigen Budget-Daten." });
+          showImportMsg({ type: "error", text: "Die Datei enthält keine gültigen Budget-Daten." });
           return;
         }
         // Jeden Eintrag validieren (Typ, Betrag, Datum)
@@ -1786,14 +1979,14 @@ export default function BudgetPlanner() {
           (entry.description === undefined || (typeof entry.description === "string" && entry.description.length <= 500))
         );
         if (validEntries.length === 0 && imp.entries.length > 0) {
-          setImportMsg({ type: "error", text: "Keine gültigen Einträge gefunden. Bitte prüfe das Dateiformat." });
+          showImportMsg({ type: "error", text: "Keine gültigen Einträge gefunden. Bitte prüfe das Dateiformat." });
           return;
         }
         const sanitized = { ...emptyData(), ...imp, entries: validEntries };
         setData(sanitized);
-        setImportMsg({ type: "success", title: "Import erfolgreich", text: `${validEntries.length} Einträge geladen aus „${file.name}".` });
+        showImportMsg({ type: "success", title: "Import erfolgreich", text: `${validEntries.length} Einträge geladen aus „${file.name}".` });
       } catch {
-        setImportMsg({ type: "error", text: "Ungültige JSON-Datei. Bitte prüfe das Dateiformat." });
+        showImportMsg({ type: "error", text: "Ungültige JSON-Datei. Bitte prüfe das Dateiformat." });
       }
     };
     reader.readAsText(file);
@@ -2061,6 +2254,7 @@ export default function BudgetPlanner() {
     { id: "yearly", icon: "calendar", label: "Jahresübersicht" },
     { id: "prediction", icon: "zap", label: "Prognose" },
     { id: "import-export", icon: "download", label: "Import / Export" },
+    { id: "settings", icon: "settings", label: "Einstellungen" },
   ];
 
   const renderPage = () => {
@@ -2076,6 +2270,7 @@ export default function BudgetPlanner() {
       case "yearly": return renderYearly();
       case "prediction": return <PredictionPage key="prediction" data={data} T={T} styles={styles}/>;
       case "import-export": return renderImportExport();
+      case "settings": return <SettingsPage key="settings" data={data} setData={setData} T={T} styles={styles}/>;
       default: return renderHome();
     }
   };
@@ -2207,6 +2402,7 @@ export default function BudgetPlanner() {
         @keyframes floatOrb1 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(40px, -30px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.95); } }
         @keyframes floatOrb2 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-50px, 20px) scale(0.9); } 66% { transform: translate(30px, -40px) scale(1.08); } }
         @keyframes floatOrb3 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(25px, 35px) scale(1.05); } }
+        @keyframes importCountdown { from { width: 100%; } to { width: 0%; } }
       `}</style>
 
       {/* ─── Animated Background Orbs ─── */}
@@ -2329,15 +2525,20 @@ export default function BudgetPlanner() {
         <div style={{ position: "fixed", inset: 0, zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center" }} onClick={() => setImportMsg(null)}>
           <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(6px)" }}/>
           <div onClick={e => e.stopPropagation()} style={{
-            position: "relative", width: "85%", maxWidth: 360, background: T.modalBg, backdropFilter: T.glassBlur,
-            borderRadius: 20, padding: "28px 24px", textAlign: "center",
+            position: "relative", width: "85%", maxWidth: 380, background: T.modalBg, backdropFilter: T.glassBlur,
+            borderRadius: 20, padding: "28px 24px 20px", textAlign: "center",
             border: `1px solid ${importMsg.type === "success" ? `${T.income}40` : `${T.expense}40`}`,
-            boxShadow: T.glassShadow, animation: "slideUp .3s ease"
+            boxShadow: T.glassShadow, animation: "slideUp .3s ease", overflow: "hidden"
           }}>
             <div style={{ fontSize: 40, marginBottom: 12 }}>{importMsg.type === "success" ? "✅" : "❌"}</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary, marginBottom: 8 }}>{importMsg.title || (importMsg.type === "success" ? "Erfolgreich" : "Fehlgeschlagen")}</div>
-            <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 20, lineHeight: 1.5 }}>{importMsg.text}</div>
+            <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 20, lineHeight: 1.6 }}>{importMsg.text}</div>
             <button onClick={() => setImportMsg(null)} style={{ ...btnPrimary, background: importMsg.type === "success" ? T.income : T.expense }}>OK</button>
+            {importMsg.type === "success" && (
+              <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, height: 3, background: `${T.income}20`, borderRadius: "0 0 20px 20px" }}>
+                <div style={{ height: "100%", background: T.income, borderRadius: "0 0 20px 20px", animation: "importCountdown 6s linear forwards" }}/>
+              </div>
+            )}
           </div>
         </div>
       )}
