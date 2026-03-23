@@ -1,0 +1,34 @@
+rules_version = '2';
+
+// ─── Firestore Security Rules ─────────────────────────────────────────────────
+// Diese Regeln stellen sicher, dass jeder Nutzer NUR seine eigenen Daten
+// lesen und schreiben kann. Nicht authentifizierte Zugriffe sind verboten.
+//
+// Deployment:
+//   firebase deploy --only firestore:rules
+// Oder direkt in der Firebase Console unter Firestore → Rules einfügen.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Standardregel: Alles verbieten (Whitelisting-Prinzip)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Budget-Daten: Nur der authentifizierte Nutzer darf seine eigenen Daten lesen/schreiben
+    match /budgets/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      // Zusätzliche Validierung beim Schreiben:
+      // - Das Dokument muss ein "data"-Feld (String) und ein "updatedAt"-Feld enthalten
+      // - Die Datengröße ist auf 1 MB begrenzt (Firebase-Limit: 1 MiB pro Dokument)
+      allow write: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasAll(["data", "updatedAt"])
+        && request.resource.data.data is string
+        && request.resource.data.updatedAt is string
+        && request.resource.data.data.size() <= 900000; // ~900 KB Sicherheitspuffer
+    }
+  }
+}
