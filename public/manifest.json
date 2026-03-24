@@ -2,7 +2,7 @@
   "name": "Budget Planer",
   "short_name": "Budget",
   "description": "Persönlicher Budget Planer – Einnahmen und Ausgaben im Überblick",
-  "start_url": "/",
+  "start_url": "/budget-planner/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#3b82f6",
