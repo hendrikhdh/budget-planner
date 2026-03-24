@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
-      script-src 'self';
+      script-src 'self' https://apis.google.com https://*.firebaseapp.com;
       style-src 'self' 'unsafe-inline';
       connect-src 'self'
         https://*.googleapis.com
@@ -14,7 +14,7 @@
         https://identitytoolkit.googleapis.com
         https://securetoken.googleapis.com;
       img-src 'self' data: https://lh3.googleusercontent.com https:;
-      frame-src https://budget-planner-pro-37aca.firebaseapp.com https://accounts.google.com;
+      frame-src https://budget-planner-pro-37aca.firebaseapp.com https://accounts.google.com https://*.firebaseapp.com;
       font-src 'self';
       object-src 'none';
       base-uri 'self';
