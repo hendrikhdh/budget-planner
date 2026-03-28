@@ -6,7 +6,7 @@
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
       script-src 'self' https://apis.google.com https://*.firebaseapp.com;
-      style-src 'self' 'unsafe-inline';
+      style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
       connect-src 'self'
         https://*.googleapis.com
         https://*.firebaseio.com
@@ -15,22 +15,17 @@
         https://securetoken.googleapis.com;
       img-src 'self' data: https://lh3.googleusercontent.com https:;
       frame-src https://budget-planner-pro-37aca.firebaseapp.com https://accounts.google.com https://*.firebaseapp.com;
-      font-src 'self';
+      font-src 'self' https://fonts.gstatic.com https://fonts.googleapis.com;
       object-src 'none';
       base-uri 'self';
     " />
     <link rel="manifest" href="/manifest.json" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Budget Planer" />
+    <meta name="apple-mobile-web-app-title" content="Tracksy" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#3b82f6" />
-    <title>Budget Planer</title>
-    <style>
-      * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow-x: hidden; }
-      #root { min-height: 100vh; }
-    </style>
+    <meta name="theme-color" content="#0546ed" />
+    <title>Tracksy</title>
   </head>
   <body>
     <div id="root"></div>

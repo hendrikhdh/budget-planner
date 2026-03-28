@@ -1,0 +1,153 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap");
+@import "tailwindcss";
+
+/* ─── Theme Tokens (Light = default) ─── */
+@theme {
+  /* Light mode colors */
+  --color-background: #f9f5ff;
+  --color-surface: #f9f5ff;
+  --color-surface-lowest: #ffffff;
+  --color-surface-low: #f3eeff;
+  --color-surface-container: #e9e5ff;
+  --color-surface-high: #e3dfff;
+  --color-surface-highest: #ddd9ff;
+  --color-surface-variant: #ddd9ff;
+
+  --color-on-surface: #2c2a51;
+  --color-on-surface-variant: #5a5781;
+  --color-on-background: #2c2a51;
+
+  --color-primary: #0546ed;
+  --color-primary-dim: #003cd3;
+  --color-primary-container: #849aff;
+  --color-on-primary: #f2f1ff;
+  --color-on-primary-container: #001967;
+
+  --color-secondary: #6a37d4;
+  --color-secondary-dim: #5e26c7;
+  --color-secondary-container: #dac9ff;
+  --color-on-secondary: #f8f0ff;
+  --color-on-secondary-container: #5517bf;
+
+  --color-tertiary: #00647b;
+  --color-tertiary-dim: #00576c;
+  --color-tertiary-container: #00cffc;
+  --color-on-tertiary: #e2f6ff;
+
+  --color-error: #b41340;
+  --color-error-dim: #a70138;
+  --color-error-container: #f74b6d;
+  --color-on-error: #ffefef;
+
+  --color-outline: #75729e;
+  --color-outline-variant: #aca8d7;
+
+  --color-income: #059669;
+  --color-expense: #e11d48;
+
+  /* Font families */
+  --font-headline: "Manrope", sans-serif;
+  --font-body: "Inter", sans-serif;
+  --font-label: "Inter", sans-serif;
+
+  /* Border radius */
+  --radius-DEFAULT: 1rem;
+  --radius-lg: 2rem;
+  --radius-xl: 3rem;
+  --radius-full: 9999px;
+}
+
+/* ─── Dark Mode Overrides ─── */
+.dark {
+  --color-background: #060e20;
+  --color-surface: #060e20;
+  --color-surface-lowest: #000000;
+  --color-surface-low: #091328;
+  --color-surface-container: #0f1930;
+  --color-surface-high: #141f38;
+  --color-surface-highest: #192540;
+  --color-surface-variant: #192540;
+
+  --color-on-surface: #dee5ff;
+  --color-on-surface-variant: #a3aac4;
+  --color-on-background: #dee5ff;
+
+  --color-primary: #a3a6ff;
+  --color-primary-dim: #6063ee;
+  --color-primary-container: #9396ff;
+  --color-on-primary: #0f00a4;
+  --color-on-primary-container: #0a0081;
+
+  --color-secondary: #ac8aff;
+  --color-secondary-dim: #8455ef;
+  --color-secondary-container: #5516be;
+  --color-on-secondary: #280067;
+  --color-on-secondary-container: #d9c8ff;
+
+  --color-tertiary: #61c2ff;
+  --color-tertiary-dim: #17a8ec;
+  --color-tertiary-container: #34b5fa;
+  --color-on-tertiary: #003b56;
+
+  --color-error: #ff6e84;
+  --color-error-dim: #d73357;
+  --color-error-container: #a70138;
+  --color-on-error: #490013;
+
+  --color-outline: #6d758c;
+  --color-outline-variant: #40485d;
+
+  --color-income: #00e87b;
+  --color-expense: #ff6e84;
+}
+
+/* ─── Base Styles ─── */
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-background);
+  color: var(--color-on-surface);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100dvh;
+}
+
+/* ─── Material Symbols ─── */
+.material-symbols-outlined {
+  font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+.material-symbols-outlined.filled {
+  font-variation-settings: "FILL" 1, "wght" 400, "GRAD" 0, "opsz" 24;
+}
+
+/* ─── Glass Morphism ─── */
+.glass-nav {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.dark .glass-nav {
+  background: rgba(15, 25, 48, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ─── Scrollbar Hide ─── */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── No Scrollbar on filter sections ─── */
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
