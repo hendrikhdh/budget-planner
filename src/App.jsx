@@ -491,7 +491,14 @@ function CategoriesPage({ data, setData, T, styles }) {
     setNewCat(""); setNewEmoji(""); setNewColor(CAT_COLORS[0].hex);
   };
   const removeCat = (type, idx) => {
-    setData(prev => ({ ...prev, categories: { ...prev.categories, [type]: prev.categories[type].filter((_, i) => i !== idx) } }));
+    const deletedName = catName(cats[idx]);
+    setData(prev => ({
+      ...prev,
+      categories: { ...prev.categories, [type]: prev.categories[type].filter((_, i) => i !== idx) },
+      entries: prev.entries.map(e =>
+        e.type === type && e.category === deletedName ? { ...e, category: "Nicht zugeordnet" } : e
+      )
+    }));
     if (editIdx === idx) setEditIdx(null);
   };
 
@@ -512,7 +519,8 @@ function CategoriesPage({ data, setData, T, styles }) {
     setEditIdx(null);
   };
 
-  const cats = catType === "expense" ? data.categories.expense : data.categories.income;
+  const cats = (catType === "expense" ? data.categories.expense : data.categories.income)
+    .filter(c => catName(c) !== "Nicht zugeordnet");
 
   const ColorDots = ({ selected, onSelect, size = 18 }) => (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -630,6 +638,7 @@ function RecurringPage({ data, setData, T, styles }) {
   const { inputStyle, selectStyle, labelStyle, btnPrimary, btnSecondary, chipStyle, glassCardStyle } = styles;
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null); // { id, reset }
   const emptyForm = { type: "expense", category: "", amount: "", description: "", startMonth: String(getToday().month), startYear: String(getToday().year), cycle: "1", endMonth: "", endYear: "", hasEnd: false };
   const [form, setForm] = useState(emptyForm);
   const catsByType = (t) => t === "income" ? data.categories.income : data.categories.expense;
@@ -673,68 +682,97 @@ function RecurringPage({ data, setData, T, styles }) {
   return (
     <div style={{ padding: "0 16px 100px" }}>
       <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Wiederkehrend</h2>
-      {data.recurring.length === 0 && !showForm && <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Keine wiederkehrenden Einträge</div>}
-      {showForm && (
-        <div style={{ ...glassCardStyle, padding: 16, marginBottom: 20, border: `1px solid ${T.accent}30` }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>{editId ? "Eintrag bearbeiten" : "Neuer Eintrag"}</div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <button onClick={() => setForm(f => ({ ...f, type: "expense", category: "" }))} style={chipStyle(form.type === "expense")}>Ausgabe</button>
-            <button onClick={() => setForm(f => ({ ...f, type: "income", category: "" }))} style={chipStyle(form.type === "income")}>Einnahme</button>
-          </div>
-          <label style={labelStyle}>Kategorie</label>
-          <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={selectStyle}>
-            <option value="">Wählen...</option>
-            {catsByType(form.type).map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
-          </select>
-          <label style={labelStyle}>Betrag (€)</label>
-          <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={inputStyle} placeholder="0.00"/>
-          <label style={labelStyle}>Beschreibung</label>
-          <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} style={inputStyle} placeholder="z.B. Netflix Abo"/>
+      {data.recurring.length === 0 && <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Keine wiederkehrenden Einträge</div>}
+
+      {/* Form Modal */}
+      <Modal open={showForm} onClose={closeForm} title={editId ? "Eintrag bearbeiten" : "Neuer Eintrag"} T={T}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <button onClick={() => setForm(f => ({ ...f, type: "expense", category: "" }))} style={chipStyle(form.type === "expense")}>Ausgabe</button>
+          <button onClick={() => setForm(f => ({ ...f, type: "income", category: "" }))} style={chipStyle(form.type === "income")}>Einnahme</button>
+        </div>
+        <label style={labelStyle}>Kategorie</label>
+        <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={selectStyle}>
+          <option value="">Wählen...</option>
+          {catsByType(form.type).map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
+        </select>
+        <label style={labelStyle}>Betrag (€)</label>
+        <input type="number" inputMode="decimal" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={inputStyle} placeholder="0.00"/>
+        <label style={labelStyle}>Beschreibung</label>
+        <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} style={inputStyle} placeholder="z.B. Netflix Abo"/>
+        <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ flex: 1 }}><label style={labelStyle}>Startmonat</label>
+            <select value={form.startMonth} onChange={e => setForm(f => ({ ...f, startMonth: e.target.value }))} style={selectStyle}>
+              {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
+            </select></div>
+          <div style={{ flex: 1 }}><label style={labelStyle}>Startjahr</label>
+            <input type="number" value={form.startYear} onChange={e => setForm(f => ({ ...f, startYear: e.target.value }))} style={inputStyle}/></div>
+        </div>
+        <label style={labelStyle}>Zyklus</label>
+        <select value={form.cycle} onChange={e => setForm(f => ({ ...f, cycle: e.target.value }))} style={selectStyle}>
+          {cycles.map(c => <option key={c.v} value={c.v}>{c.l}</option>)}
+        </select>
+        <div style={{ marginTop: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: T.textSecondary, cursor: "pointer" }}>
+            <input type="checkbox" checked={form.hasEnd} onChange={e => setForm(f => ({ ...f, hasEnd: e.target.checked }))} style={{ accentColor: T.accent }}/>
+            Enddatum festlegen
+          </label>
+        </div>
+        {form.hasEnd && (
           <div style={{ display: "flex", gap: 8 }}>
-            <div style={{ flex: 1 }}><label style={labelStyle}>Startmonat</label>
-              <select value={form.startMonth} onChange={e => setForm(f => ({ ...f, startMonth: e.target.value }))} style={selectStyle}>
+            <div style={{ flex: 1 }}><label style={labelStyle}>Endmonat</label>
+              <select value={form.endMonth} onChange={e => setForm(f => ({ ...f, endMonth: e.target.value }))} style={selectStyle}>
+                <option value="">Wählen...</option>
                 {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
               </select></div>
-            <div style={{ flex: 1 }}><label style={labelStyle}>Startjahr</label>
-              <input type="number" value={form.startYear} onChange={e => setForm(f => ({ ...f, startYear: e.target.value }))} style={inputStyle}/></div>
+            <div style={{ flex: 1 }}><label style={labelStyle}>Endjahr</label>
+              <input type="number" value={form.endYear} onChange={e => setForm(f => ({ ...f, endYear: e.target.value }))} style={inputStyle} placeholder={String(getToday().year + 1)}/></div>
           </div>
-          <label style={labelStyle}>Zyklus</label>
-          <select value={form.cycle} onChange={e => setForm(f => ({ ...f, cycle: e.target.value }))} style={selectStyle}>
-            {cycles.map(c => <option key={c.v} value={c.v}>{c.l}</option>)}
-          </select>
-          <div style={{ marginTop: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: T.textSecondary, cursor: "pointer" }}>
-              <input type="checkbox" checked={form.hasEnd} onChange={e => setForm(f => ({ ...f, hasEnd: e.target.checked }))} style={{ accentColor: T.accent }}/>
-              Enddatum festlegen
-            </label>
-          </div>
-          {form.hasEnd && (
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+          <button onClick={saveRecurring} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
+        </div>
+        {editId && (
+          <button onClick={() => { if (window.confirm("Diesen Eintrag wirklich löschen?")) { deleteRecurring(editId); closeForm(); } }} style={{
+            marginTop: 12, padding: "10px 18px", background: "none",
+            border: `1px solid ${T.expense}40`, borderRadius: 10,
+            color: T.expense, fontSize: 13, fontWeight: 600, cursor: "pointer",
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+          }}>
+            <Icon name="trash" size={16} color={T.expense}/> Eintrag löschen
+          </button>
+        )}
+      </Modal>
+
+      {/* Swipe-Delete Confirmation Dialog */}
+      {pendingDelete && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(6px)" }}/>
+          <div style={{
+            position: "relative", width: "85%", maxWidth: 340,
+            background: T.modalBg, backdropFilter: T.glassBlur,
+            borderRadius: 20, padding: "28px 24px 20px", textAlign: "center",
+            border: `1px solid ${T.expense}30`, boxShadow: T.glassShadow, animation: "slideUp .3s ease"
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🗑️</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary, marginBottom: 8 }}>Eintrag löschen?</div>
+            <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 20, lineHeight: 1.5 }}>Dieser wiederkehrende Eintrag wird dauerhaft gelöscht.</div>
             <div style={{ display: "flex", gap: 8 }}>
-              <div style={{ flex: 1 }}><label style={labelStyle}>Endmonat</label>
-                <select value={form.endMonth} onChange={e => setForm(f => ({ ...f, endMonth: e.target.value }))} style={selectStyle}>
-                  <option value="">Wählen...</option>
-                  {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
-                </select></div>
-              <div style={{ flex: 1 }}><label style={labelStyle}>Endjahr</label>
-                <input type="number" value={form.endYear} onChange={e => setForm(f => ({ ...f, endYear: e.target.value }))} style={inputStyle} placeholder={String(getToday().year + 1)}/></div>
+              <button onClick={() => { pendingDelete.reset(); setPendingDelete(null); }} style={{ flex: 1, padding: "11px", background: T.glassCard, border: `1px solid ${T.glassBorder}`, borderRadius: 12, color: T.textPrimary, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Abbrechen</button>
+              <button onClick={() => { deleteRecurring(pendingDelete.id); setPendingDelete(null); }} style={{ flex: 1, padding: "11px", background: `linear-gradient(135deg, ${T.expense}, #ff3333)`, border: "none", borderRadius: 12, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Löschen</button>
             </div>
-          )}
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button onClick={saveRecurring} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
-            <button onClick={closeForm} style={{ ...btnSecondary, flex: "0 0 auto" }}>Abbrechen</button>
           </div>
         </div>
       )}
+
       {[...data.recurring].sort((a, b) => {
         if (a.type !== b.type) return a.type === "income" ? -1 : 1;
         return b.amount - a.amount;
       }).map(r => {
         const cn = { 1: "Monatlich", 2: "Alle 2 Mo.", 3: "Vierteljährlich", 6: "Halbjährlich", 12: "Jährlich" }[r.cycle] || `Alle ${r.cycle} Mo.`;
         const endStr = r.endYear != null ? ` → ${new Date(r.endYear, r.endMonth || 0).toLocaleString("de-DE", { month: "short", year: "numeric" })}` : "";
-        const isEditing = editId === r.id && showForm;
         return (
-          <SwipeToDelete key={r.id} onDelete={() => deleteRecurring(r.id)} T={T}>
-            <div onClick={() => openEdit(r)} style={{ ...glassCardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", cursor: "pointer", border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border, transition: "all .15s", borderRadius: 14 }}>
+          <SwipeToDelete key={r.id} onDelete={(reset) => setPendingDelete({ id: r.id, reset })} T={T}>
+            <div onClick={() => openEdit(r)} style={{ ...glassCardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", cursor: "pointer", transition: "all .15s", borderRadius: 14 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600 }}>{r.description || r.category}</div>
@@ -802,29 +840,35 @@ function SavingsPage({ data, setData, T, styles }) {
   return (
     <div style={{ padding: "0 16px 100px" }}>
       <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Sparziele</h2>
-      {showForm && (
-        <div style={{ ...glassCardStyle, padding: 16, marginBottom: 20, border: `1px solid ${T.accent}30` }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>{editId ? "Sparziel bearbeiten" : "Neues Sparziel"}</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <div>
-              <label style={labelStyle}>Emoji</label>
-              <input value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value }))} style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 22, padding: "6px" }} placeholder="🎯"/>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Name</label>
-              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={inputStyle} placeholder="z.B. Urlaub 2026"/>
-            </div>
+      <Modal open={showForm} onClose={closeForm} title={editId ? "Sparziel bearbeiten" : "Neues Sparziel"} T={T}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <div>
+            <label style={labelStyle}>Emoji</label>
+            <input value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value }))} style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 22, padding: "6px" }} placeholder="🎯"/>
           </div>
-          <label style={labelStyle}>Zielbetrag (€)</label>
-          <input type="number" value={form.target} onChange={e => setForm(f => ({ ...f, target: e.target.value }))} style={inputStyle} placeholder="5000"/>
-          <label style={labelStyle}>Bereits gespart (€)</label>
-          <input type="number" value={form.saved} onChange={e => setForm(f => ({ ...f, saved: e.target.value }))} style={inputStyle} placeholder="0"/>
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button onClick={saveGoal} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
-            <button onClick={closeForm} style={{ ...btnSecondary, flex: "0 0 auto" }}>Abbrechen</button>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Name</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={inputStyle} placeholder="z.B. Urlaub 2026"/>
           </div>
         </div>
-      )}
+        <label style={labelStyle}>Zielbetrag (€)</label>
+        <input type="number" value={form.target} onChange={e => setForm(f => ({ ...f, target: e.target.value }))} style={inputStyle} placeholder="5000"/>
+        <label style={labelStyle}>Bereits gespart (€)</label>
+        <input type="number" value={form.saved} onChange={e => setForm(f => ({ ...f, saved: e.target.value }))} style={inputStyle} placeholder="0"/>
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <button onClick={saveGoal} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
+        </div>
+        {editId && (
+          <button onClick={() => { if (window.confirm("Dieses Sparziel wirklich löschen?")) { deleteGoal(editId); closeForm(); } }} style={{
+            marginTop: 12, padding: "10px 18px", background: "none",
+            border: `1px solid ${T.expense}40`, borderRadius: 10,
+            color: T.expense, fontSize: 13, fontWeight: 600, cursor: "pointer",
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+          }}>
+            <Icon name="trash" size={16} color={T.expense}/> Sparziel löschen
+          </button>
+        )}
+      </Modal>
       {data.savingsGoals.length === 0 && !showForm && <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Noch keine Sparziele</div>}
       {data.savingsGoals.map(g => {
         const pct = Math.min((g.saved / g.target) * 100, 100);
@@ -1295,6 +1339,7 @@ function BudgetPage({ data, setData, monthEntries, T, styles }) {
   const { inputStyle, labelStyle, btnPrimary, btnSecondary, glassCardStyle, chipStyle, selectStyle } = styles;
   const [newCat, setNewCat] = useState("");
   const [newAmount, setNewAmount] = useState("");
+  const [showForm, setShowForm] = useState(false);
   const budgets = data.budgets || {};
   const expenseCats = data.categories.expense || [];
 
@@ -1302,6 +1347,7 @@ function BudgetPage({ data, setData, monthEntries, T, styles }) {
     if (!newCat || !newAmount) return;
     setData(prev => ({ ...prev, budgets: { ...prev.budgets, [newCat]: parseFloat(newAmount) } }));
     setNewCat(""); setNewAmount("");
+    setShowForm(false);
   };
   const removeBudget = (cat) => {
     setData(prev => { const b = { ...prev.budgets }; delete b[cat]; return { ...prev, budgets: b }; });
@@ -1322,50 +1368,70 @@ function BudgetPage({ data, setData, monthEntries, T, styles }) {
     <div style={{ padding: "0 16px 100px" }}>
       <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Monatsbudgets</h2>
 
-      {catsWithBudget.length > 0 && catsWithBudget.map(({ cat, limit, spent, pct, remaining }) => {
+      {catsWithBudget.length === 0 && (
+        <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>
+          {availableCats.length === 0 ? "Erstelle zuerst Ausgaben-Kategorien" : "Noch keine Budgets gesetzt – tippe auf + um zu beginnen"}
+        </div>
+      )}
+
+      {catsWithBudget.map(({ cat, limit, spent, pct, remaining }) => {
         const overBudget = remaining < 0;
         const warn = pct >= 80 && pct < 100;
         const barColor = overBudget ? T.expense : warn ? T.warning : T.income;
         const emoji = (() => { const found = expenseCats.find(c => catName(c) === cat); return found ? catEmoji(found) : ""; })();
         return (
-          <div key={cat} style={{ ...glassCardStyle, padding: "14px 16px", marginBottom: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary }}>{emoji && <span style={{ marginRight: 6 }}>{emoji}</span>}{cat}</span>
-              <button onClick={() => removeBudget(cat)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}>
-                <Icon name="x" size={14} color={T.textMuted}/>
-              </button>
+          <SwipeToDelete key={cat} onDelete={() => removeBudget(cat)} T={T}>
+            <div style={{ ...glassCardStyle, padding: "14px 16px", marginBottom: 8 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary }}>{emoji && <span style={{ marginRight: 6 }}>{emoji}</span>}{cat}</span>
+                <span style={{ fontSize: 12, color: T.textMuted }}>{pct.toFixed(0)}%</span>
+              </div>
+              <div style={{ height: 8, background: `${T.textMuted}20`, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
+                <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, background: barColor, borderRadius: 4, transition: "width .5s" }}/>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span style={{ color: T.textSecondary }}>{fmt(spent)} von {fmt(limit)}</span>
+                <span style={{ color: overBudget ? T.expense : warn ? T.warning : T.income, fontWeight: 600 }}>
+                  {overBudget ? `${fmt(Math.abs(remaining))} über Budget!` : `${fmt(remaining)} übrig`}
+                </span>
+              </div>
+              <div style={{ marginTop: 8 }}>
+                <input type="number" value={limit} onChange={e => updateBudget(cat, e.target.value)} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12, width: 120 }}/>
+              </div>
             </div>
-            <div style={{ height: 8, background: `${T.textMuted}20`, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
-              <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, background: barColor, borderRadius: 4, transition: "width .5s" }}/>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-              <span style={{ color: T.textSecondary }}>{fmt(spent)} von {fmt(limit)}</span>
-              <span style={{ color: overBudget ? T.expense : warn ? T.warning : T.income, fontWeight: 600 }}>
-                {overBudget ? `${fmt(Math.abs(remaining))} über Budget!` : `${fmt(remaining)} übrig`}
-              </span>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <input type="number" value={limit} onChange={e => updateBudget(cat, e.target.value)} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12, width: 120 }}/>
-            </div>
-          </div>
+          </SwipeToDelete>
         );
       })}
 
-      {availableCats.length > 0 && (
-        <div style={{ ...glassCardStyle, padding: 14, marginTop: 16, border: `1px solid ${T.accent}30` }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: T.textPrimary, marginBottom: 10 }}>Budget hinzufügen</div>
-          <select value={newCat} onChange={e => setNewCat(e.target.value)} style={{ ...selectStyle, marginBottom: 8 }}>
-            <option value="">Kategorie wählen...</option>
-            {availableCats.map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
-          </select>
-          <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }} placeholder="Monatliches Limit (€)"/>
-          <button onClick={addBudget} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Budget setzen</button>
-        </div>
-      )}
+      {/* Budget-Form Modal */}
+      <Modal open={showForm} onClose={() => { setShowForm(false); setNewCat(""); setNewAmount(""); }} title="Budget setzen" T={T}>
+        {availableCats.length === 0 ? (
+          <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: "16px 0" }}>Alle Kategorien haben bereits ein Budget.</div>
+        ) : (
+          <>
+            <label style={labelStyle}>Kategorie</label>
+            <select value={newCat} onChange={e => setNewCat(e.target.value)} style={selectStyle}>
+              <option value="">Kategorie wählen...</option>
+              {availableCats.map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
+            </select>
+            <label style={labelStyle}>Monatliches Limit (€)</label>
+            <input type="number" inputMode="decimal" value={newAmount} onChange={e => setNewAmount(e.target.value)} style={inputStyle} placeholder="0.00"/>
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+              <button onClick={addBudget} style={btnPrimary}>Budget setzen</button>
+            </div>
+          </>
+        )}
+      </Modal>
 
-      {catsWithBudget.length === 0 && availableCats.length === 0 && (
-        <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Erstelle zuerst Ausgaben-Kategorien</div>
-      )}
+      {/* FAB – Neues Budget */}
+      <button onClick={() => setShowForm(true)} style={{
+        position: "fixed", bottom: 24, right: 24, width: 56, height: 56,
+        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
+        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff"
+      }}>
+        <Icon name="plus" size={24}/>
+      </button>
     </div>
   );
 }
@@ -1521,7 +1587,14 @@ const SwipeToDelete = ({ onDelete, children, T, disabled, onSwipeActive }) => {
       ref.current.style.transition = "transform .3s ease, opacity .3s ease";
       ref.current.style.transform = `translateX(-${containerWidth.current}px)`;
       ref.current.style.opacity = "0";
-      setTimeout(() => onDelete(), 300);
+      const reset = () => {
+        if (ref.current) {
+          ref.current.style.transition = "transform .3s ease, opacity .3s ease";
+          ref.current.style.transform = "translateX(0)";
+          ref.current.style.opacity = "1";
+        }
+      };
+      setTimeout(() => onDelete(reset), 300);
     } else {
       // Nicht weit genug → zurück zur Ausgangsposition
       ref.current.style.transition = "transform .3s ease";
@@ -2646,7 +2719,7 @@ export default function BudgetPlanner() {
         </div>
       )}
 
-      <div style={{ paddingTop: 57, position: "relative", zIndex: 1 }}>{renderPage()}</div>
+      <div style={{ paddingTop: 69, position: "relative", zIndex: 1 }}>{renderPage()}</div>
 
       <EntryModal open={newEntryOpen} onClose={() => { setNewEntryOpen(false); setEditEntry(null); }} editEntry={editEntry} onSave={handleSaveEntry} onDelete={handleDeleteEntry} categories={data.categories} viewMonth={viewMonth} viewYear={viewYear} T={T} styles={styles}/>
 
