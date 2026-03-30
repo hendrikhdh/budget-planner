@@ -39,6 +39,16 @@ const CAT_COLORS = [
   { name: "Lime", hex: "#b0ff57" },
   { name: "Blau", hex: "#4d8bff" },
   { name: "Koralle", hex: "#ff9580" },
+  { name: "Türkis", hex: "#14b8a6" },
+  { name: "Violett", hex: "#a855f7" },
+  { name: "Hellblau", hex: "#38bdf8" },
+  { name: "Dunkelorange", hex: "#f97316" },
+  { name: "Dunkelgrün", hex: "#16a34a" },
+  { name: "Hellrosa", hex: "#f472b6" },
+  { name: "Braun", hex: "#a16207" },
+  { name: "Silber", hex: "#94a3b8" },
+  { name: "Dunkelrot", hex: "#dc2626" },
+  { name: "Indigo", hex: "#6366f1" },
 ];
 
 const DEFAULT_INCOME_CATS = [
@@ -455,9 +465,9 @@ const EntryItem = ({ e, onClick, emojiLookup, colorLookup, T }) => {
 const MonthNav = ({ viewMonth, viewYear, prevMonth, nextMonth, goToday, T, btnSecondary }) => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, margin: "16px 0" }}>
     <button onClick={prevMonth} style={{ ...btnSecondary, padding: "8px", borderRadius: "50%", display: "flex" }}><Icon name="left" size={18}/></button>
-    <span style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary, minWidth: 160, textAlign: "center" }}>{monthName(viewMonth, viewYear)}</span>
+    <span style={{ fontSize: 20, fontWeight: 700, color: T.textPrimary, minWidth: 170, textAlign: "center" }}>{monthName(viewMonth, viewYear)}</span>
     <button onClick={nextMonth} style={{ ...btnSecondary, padding: "8px", borderRadius: "50%", display: "flex" }}><Icon name="right" size={18}/></button>
-    <button onClick={goToday} style={{ ...btnSecondary, padding: "6px 12px", fontSize: 11, fontWeight: 700 }}>Heute</button>
+    <button onClick={goToday} style={{ ...btnSecondary, padding: "8px 16px", fontSize: 13, fontWeight: 700 }}>Heute</button>
   </div>
 );
 
@@ -473,6 +483,7 @@ function CategoriesPage({ data, setData, T, styles }) {
   const [catType, setCatType] = useState("expense");
   const [editIdx, setEditIdx] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", emoji: "", color: "" });
+  const [showAddForm, setShowAddForm] = useState(false);
 
   const addCat = () => {
     if (!newCat.trim()) return;
@@ -480,7 +491,14 @@ function CategoriesPage({ data, setData, T, styles }) {
     setNewCat(""); setNewEmoji(""); setNewColor(CAT_COLORS[0].hex);
   };
   const removeCat = (type, idx) => {
-    setData(prev => ({ ...prev, categories: { ...prev.categories, [type]: prev.categories[type].filter((_, i) => i !== idx) } }));
+    const deletedName = catName(cats[idx]);
+    setData(prev => ({
+      ...prev,
+      categories: { ...prev.categories, [type]: prev.categories[type].filter((_, i) => i !== idx) },
+      entries: prev.entries.map(e =>
+        e.type === type && e.category === deletedName ? { ...e, category: "Nicht zugeordnet" } : e
+      )
+    }));
     if (editIdx === idx) setEditIdx(null);
   };
 
@@ -501,7 +519,8 @@ function CategoriesPage({ data, setData, T, styles }) {
     setEditIdx(null);
   };
 
-  const cats = catType === "expense" ? data.categories.expense : data.categories.income;
+  const cats = (catType === "expense" ? data.categories.expense : data.categories.income)
+    .filter(c => catName(c) !== "Nicht zugeordnet");
 
   const ColorDots = ({ selected, onSelect, size = 18 }) => (
     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
@@ -521,17 +540,33 @@ function CategoriesPage({ data, setData, T, styles }) {
         <button onClick={() => { setCatType("expense"); setEditIdx(null); }} style={chipStyle(catType === "expense")}>Ausgaben</button>
         <button onClick={() => { setCatType("income"); setEditIdx(null); }} style={chipStyle(catType === "income")}>Einnahmen</button>
       </div>
-      <div style={{ ...glassCardStyle, padding: 14, marginBottom: 20, border: `1px solid ${T.accent}30` }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-          <input value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder="😀" style={{ ...inputStyle, width: 48, textAlign: "center", fontSize: 20, padding: "6px" }}/>
-          <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => e.key === "Enter" && addCat()} placeholder="Neue Kategorie..." style={{ ...inputStyle, flex: 1 }}/>
+      {/* Add-Form Modal */}
+      {showAddForm && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setShowAddForm(false)}>
+          <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(6px)" }}/>
+          <div onClick={e => e.stopPropagation()} style={{
+            position: "relative", width: "100%", maxWidth: 520,
+            background: T.modalBg, backdropFilter: T.glassBlur,
+            borderRadius: "20px 20px 0 0", padding: "24px 20px 40px",
+            border: `1px solid ${T.glassBorder}`, boxShadow: T.glassShadow, animation: "slideUp .3s ease"
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary, marginBottom: 14 }}>Neue Kategorie</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+              <input value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder="😀" style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 20, padding: "6px" }}/>
+              <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addCat(); setShowAddForm(false); } }} placeholder="Neue Kategorie..." style={{ ...inputStyle, flex: 1 }} autoFocus/>
+            </div>
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 8 }}>Farbe wählen</div>
+              <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} style={{
+                width: "100%", height: 40, border: `1px solid ${T.inputBorder}`, borderRadius: 10,
+                background: T.inputBg, cursor: "pointer", padding: 2, display: "block", marginBottom: 10
+              }}/>
+              <ColorDots selected={newColor} onSelect={setNewColor}/>
+            </div>
+            <button onClick={() => { addCat(); setShowAddForm(false); }} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Hinzufügen</button>
+          </div>
         </div>
-        <div style={{ marginBottom: 10 }}>
-          <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 6 }}>Farbe wählen</div>
-          <ColorDots selected={newColor} onSelect={setNewColor}/>
-        </div>
-        <button onClick={addCat} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Neue Kategorie</button>
-      </div>
+      )}
       {cats.map((cat, i) => {
         const isEditing = editIdx === i;
         return (
@@ -548,9 +583,7 @@ function CategoriesPage({ data, setData, T, styles }) {
                 <span style={{ fontSize: 18, minWidth: 24, textAlign: "center" }}>{catEmoji(cat) || "·"}</span>
                 <span style={{ color: T.textPrimary, fontSize: 14 }}>{catName(cat)}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Icon name={isEditing ? "x" : "edit"} size={15} color={T.textMuted}/>
-              </div>
+              {isEditing && <Icon name="x" size={15} color={T.textMuted}/>}
             </div>
             {isEditing && (
               <div style={{
@@ -574,6 +607,10 @@ function CategoriesPage({ data, setData, T, styles }) {
                 </div>
                 <div style={{ marginBottom: 12 }}>
                   <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 6 }}>Farbe</div>
+                  <input type="color" value={editForm.color} onChange={e => setEditForm(f => ({ ...f, color: e.target.value }))} style={{
+                    width: "100%", height: 36, border: `1px solid ${T.inputBorder}`, borderRadius: 10,
+                    background: T.inputBg, cursor: "pointer", padding: 2, display: "block", marginBottom: 8
+                  }}/>
                   <ColorDots selected={editForm.color} onSelect={(hex) => setEditForm(f => ({ ...f, color: hex }))} size={22}/>
                 </div>
                 <button onClick={saveEdit} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Speichern</button>
@@ -582,6 +619,15 @@ function CategoriesPage({ data, setData, T, styles }) {
           </SwipeToDelete>
         );
       })}
+      {/* FAB – Neue Kategorie */}
+      <button onClick={() => setShowAddForm(true)} style={{
+        position: "fixed", bottom: 24, right: 24, width: 56, height: 56,
+        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
+        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff"
+      }}>
+        <Icon name="plus" size={24}/>
+      </button>
     </div>
   );
 }
@@ -590,6 +636,7 @@ function RecurringPage({ data, setData, T, styles }) {
   const { inputStyle, selectStyle, labelStyle, btnPrimary, btnSecondary, chipStyle, glassCardStyle } = styles;
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null); // { id, reset }
   const emptyForm = { type: "expense", category: "", amount: "", description: "", startMonth: String(getToday().month), startYear: String(getToday().year), cycle: "1", endMonth: "", endYear: "", hasEnd: false };
   const [form, setForm] = useState(emptyForm);
   const catsByType = (t) => t === "income" ? data.categories.income : data.categories.expense;
@@ -632,69 +679,98 @@ function RecurringPage({ data, setData, T, styles }) {
   const months = Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: new Date(2024, i).toLocaleString("de-DE", { month: "long" }) }));
   return (
     <div style={{ padding: "0 16px 100px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, margin: 0 }}>Wiederkehrend</h2>
-        <button onClick={openNew} style={{ ...btnPrimary, width: "auto", padding: "8px 16px", fontSize: 13 }}>+ Neu</button>
-      </div>
-      {data.recurring.length === 0 && !showForm && <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Keine wiederkehrenden Einträge</div>}
-      {showForm && (
-        <div style={{ ...glassCardStyle, padding: 16, marginBottom: 20, border: `1px solid ${T.accent}30` }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>{editId ? "Eintrag bearbeiten" : "Neuer Eintrag"}</div>
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <button onClick={() => setForm(f => ({ ...f, type: "expense", category: "" }))} style={chipStyle(form.type === "expense")}>Ausgabe</button>
-            <button onClick={() => setForm(f => ({ ...f, type: "income", category: "" }))} style={chipStyle(form.type === "income")}>Einnahme</button>
-          </div>
-          <label style={labelStyle}>Kategorie</label>
-          <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={selectStyle}>
-            <option value="">Wählen...</option>
-            {catsByType(form.type).map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
-          </select>
-          <label style={labelStyle}>Betrag (€)</label>
-          <input type="number" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={inputStyle} placeholder="0.00"/>
-          <label style={labelStyle}>Beschreibung</label>
-          <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} style={inputStyle} placeholder="z.B. Netflix Abo"/>
+      <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Wiederkehrend</h2>
+      {data.recurring.length === 0 && <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Keine wiederkehrenden Einträge</div>}
+
+      {/* Form Modal */}
+      <Modal open={showForm} onClose={closeForm} title={editId ? "Eintrag bearbeiten" : "Neuer Eintrag"} T={T}>
+        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+          <button onClick={() => setForm(f => ({ ...f, type: "expense", category: "" }))} style={chipStyle(form.type === "expense")}>Ausgabe</button>
+          <button onClick={() => setForm(f => ({ ...f, type: "income", category: "" }))} style={chipStyle(form.type === "income")}>Einnahme</button>
+        </div>
+        <label style={labelStyle}>Kategorie</label>
+        <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} style={selectStyle}>
+          <option value="">Wählen...</option>
+          {catsByType(form.type).map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
+        </select>
+        <label style={labelStyle}>Betrag (€)</label>
+        <input type="number" inputMode="decimal" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={inputStyle} placeholder="0.00"/>
+        <label style={labelStyle}>Beschreibung</label>
+        <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} style={inputStyle} placeholder="z.B. Netflix Abo"/>
+        <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ flex: 1 }}><label style={labelStyle}>Startmonat</label>
+            <select value={form.startMonth} onChange={e => setForm(f => ({ ...f, startMonth: e.target.value }))} style={selectStyle}>
+              {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
+            </select></div>
+          <div style={{ flex: 1 }}><label style={labelStyle}>Startjahr</label>
+            <input type="number" value={form.startYear} onChange={e => setForm(f => ({ ...f, startYear: e.target.value }))} style={inputStyle}/></div>
+        </div>
+        <label style={labelStyle}>Zyklus</label>
+        <select value={form.cycle} onChange={e => setForm(f => ({ ...f, cycle: e.target.value }))} style={selectStyle}>
+          {cycles.map(c => <option key={c.v} value={c.v}>{c.l}</option>)}
+        </select>
+        <div style={{ marginTop: 12 }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: T.textSecondary, cursor: "pointer" }}>
+            <input type="checkbox" checked={form.hasEnd} onChange={e => setForm(f => ({ ...f, hasEnd: e.target.checked }))} style={{ accentColor: T.accent }}/>
+            Enddatum festlegen
+          </label>
+        </div>
+        {form.hasEnd && (
           <div style={{ display: "flex", gap: 8 }}>
-            <div style={{ flex: 1 }}><label style={labelStyle}>Startmonat</label>
-              <select value={form.startMonth} onChange={e => setForm(f => ({ ...f, startMonth: e.target.value }))} style={selectStyle}>
+            <div style={{ flex: 1 }}><label style={labelStyle}>Endmonat</label>
+              <select value={form.endMonth} onChange={e => setForm(f => ({ ...f, endMonth: e.target.value }))} style={selectStyle}>
+                <option value="">Wählen...</option>
                 {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
               </select></div>
-            <div style={{ flex: 1 }}><label style={labelStyle}>Startjahr</label>
-              <input type="number" value={form.startYear} onChange={e => setForm(f => ({ ...f, startYear: e.target.value }))} style={inputStyle}/></div>
+            <div style={{ flex: 1 }}><label style={labelStyle}>Endjahr</label>
+              <input type="number" value={form.endYear} onChange={e => setForm(f => ({ ...f, endYear: e.target.value }))} style={inputStyle} placeholder={String(getToday().year + 1)}/></div>
           </div>
-          <label style={labelStyle}>Zyklus</label>
-          <select value={form.cycle} onChange={e => setForm(f => ({ ...f, cycle: e.target.value }))} style={selectStyle}>
-            {cycles.map(c => <option key={c.v} value={c.v}>{c.l}</option>)}
-          </select>
-          <div style={{ marginTop: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: T.textSecondary, cursor: "pointer" }}>
-              <input type="checkbox" checked={form.hasEnd} onChange={e => setForm(f => ({ ...f, hasEnd: e.target.checked }))} style={{ accentColor: T.accent }}/>
-              Enddatum festlegen
-            </label>
-          </div>
-          {form.hasEnd && (
+        )}
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+          <button onClick={saveRecurring} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
+        </div>
+        {editId && (
+          <button onClick={() => { if (window.confirm("Diesen Eintrag wirklich löschen?")) { deleteRecurring(editId); closeForm(); } }} style={{
+            marginTop: 12, padding: "10px 18px", background: "none",
+            border: `1px solid ${T.expense}40`, borderRadius: 10,
+            color: T.expense, fontSize: 13, fontWeight: 600, cursor: "pointer",
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+          }}>
+            <Icon name="trash" size={16} color={T.expense}/> Eintrag löschen
+          </button>
+        )}
+      </Modal>
+
+      {/* Swipe-Delete Confirmation Dialog */}
+      {pendingDelete && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(6px)" }}/>
+          <div style={{
+            position: "relative", width: "85%", maxWidth: 340,
+            background: T.modalBg, backdropFilter: T.glassBlur,
+            borderRadius: 20, padding: "28px 24px 20px", textAlign: "center",
+            border: `1px solid ${T.expense}30`, boxShadow: T.glassShadow, animation: "slideUp .3s ease"
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 12 }}>🗑️</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary, marginBottom: 8 }}>Eintrag löschen?</div>
+            <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 20, lineHeight: 1.5 }}>Dieser wiederkehrende Eintrag wird dauerhaft gelöscht.</div>
             <div style={{ display: "flex", gap: 8 }}>
-              <div style={{ flex: 1 }}><label style={labelStyle}>Endmonat</label>
-                <select value={form.endMonth} onChange={e => setForm(f => ({ ...f, endMonth: e.target.value }))} style={selectStyle}>
-                  <option value="">Wählen...</option>
-                  {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
-                </select></div>
-              <div style={{ flex: 1 }}><label style={labelStyle}>Endjahr</label>
-                <input type="number" value={form.endYear} onChange={e => setForm(f => ({ ...f, endYear: e.target.value }))} style={inputStyle} placeholder={String(getToday().year + 1)}/></div>
+              <button onClick={() => { pendingDelete.reset(); setPendingDelete(null); }} style={{ flex: 1, padding: "11px", background: T.glassCard, border: `1px solid ${T.glassBorder}`, borderRadius: 12, color: T.textPrimary, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Abbrechen</button>
+              <button onClick={() => { deleteRecurring(pendingDelete.id); setPendingDelete(null); }} style={{ flex: 1, padding: "11px", background: `linear-gradient(135deg, ${T.expense}, #ff3333)`, border: "none", borderRadius: 12, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Löschen</button>
             </div>
-          )}
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button onClick={saveRecurring} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
-            <button onClick={closeForm} style={{ ...btnSecondary, flex: "0 0 auto" }}>Abbrechen</button>
           </div>
         </div>
       )}
-      {data.recurring.map(r => {
+
+      {[...data.recurring].sort((a, b) => {
+        if (a.type !== b.type) return a.type === "income" ? -1 : 1;
+        return b.amount - a.amount;
+      }).map(r => {
         const cn = { 1: "Monatlich", 2: "Alle 2 Mo.", 3: "Vierteljährlich", 6: "Halbjährlich", 12: "Jährlich" }[r.cycle] || `Alle ${r.cycle} Mo.`;
         const endStr = r.endYear != null ? ` → ${new Date(r.endYear, r.endMonth || 0).toLocaleString("de-DE", { month: "short", year: "numeric" })}` : "";
-        const isEditing = editId === r.id && showForm;
         return (
-          <SwipeToDelete key={r.id} onDelete={() => deleteRecurring(r.id)} T={T}>
-            <div onClick={() => openEdit(r)} style={{ ...glassCardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", cursor: "pointer", border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border, transition: "all .15s", borderRadius: 14 }}>
+          <SwipeToDelete key={r.id} onDelete={(reset) => setPendingDelete({ id: r.id, reset })} T={T}>
+            <div onClick={() => openEdit(r)} style={{ ...glassCardStyle, display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px", cursor: "pointer", transition: "all .15s", borderRadius: 14 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div>
                   <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600 }}>{r.description || r.category}</div>
@@ -706,6 +782,15 @@ function RecurringPage({ data, setData, T, styles }) {
           </SwipeToDelete>
         );
       })}
+      {/* FAB – Neuer wiederkehrender Eintrag */}
+      <button onClick={openNew} style={{
+        position: "fixed", bottom: 24, right: 24, width: 56, height: 56,
+        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
+        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff"
+      }}>
+        <Icon name="plus" size={24}/>
+      </button>
     </div>
   );
 }
@@ -752,50 +837,64 @@ function SavingsPage({ data, setData, T, styles }) {
 
   return (
     <div style={{ padding: "0 16px 100px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, margin: 0 }}>Sparziele</h2>
-        <button onClick={openNew} style={{ ...btnPrimary, width: "auto", padding: "8px 16px", fontSize: 13 }}>+ Neu</button>
-      </div>
-      {showForm && (
-        <div style={{ ...glassCardStyle, padding: 16, marginBottom: 20, border: `1px solid ${T.accent}30` }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>{editId ? "Sparziel bearbeiten" : "Neues Sparziel"}</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <div>
-              <label style={labelStyle}>Emoji</label>
-              <input value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value }))} style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 22, padding: "6px" }} placeholder="🎯"/>
-            </div>
-            <div style={{ flex: 1 }}>
-              <label style={labelStyle}>Name</label>
-              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={inputStyle} placeholder="z.B. Urlaub 2026"/>
-            </div>
+      <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Sparziele</h2>
+      <Modal open={showForm} onClose={closeForm} title={editId ? "Sparziel bearbeiten" : "Neues Sparziel"} T={T}>
+        <div style={{ display: "flex", gap: 8 }}>
+          <div>
+            <label style={labelStyle}>Emoji</label>
+            <input value={form.emoji} onChange={e => setForm(f => ({ ...f, emoji: e.target.value }))} style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 22, padding: "6px" }} placeholder="🎯"/>
           </div>
-          <label style={labelStyle}>Zielbetrag (€)</label>
-          <input type="number" value={form.target} onChange={e => setForm(f => ({ ...f, target: e.target.value }))} style={inputStyle} placeholder="5000"/>
-          <label style={labelStyle}>Bereits gespart (€)</label>
-          <input type="number" value={form.saved} onChange={e => setForm(f => ({ ...f, saved: e.target.value }))} style={inputStyle} placeholder="0"/>
-          <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
-            <button onClick={saveGoal} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
-            <button onClick={closeForm} style={{ ...btnSecondary, flex: "0 0 auto" }}>Abbrechen</button>
+          <div style={{ flex: 1 }}>
+            <label style={labelStyle}>Name</label>
+            <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={inputStyle} placeholder="z.B. Urlaub 2026"/>
           </div>
         </div>
-      )}
+        <label style={labelStyle}>Zielbetrag (€)</label>
+        <input type="number" value={form.target} onChange={e => setForm(f => ({ ...f, target: e.target.value }))} style={inputStyle} placeholder="5000"/>
+        <label style={labelStyle}>Bereits gespart (€)</label>
+        <input type="number" value={form.saved} onChange={e => setForm(f => ({ ...f, saved: e.target.value }))} style={inputStyle} placeholder="0"/>
+        <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
+          <button onClick={saveGoal} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
+        </div>
+        {editId && (
+          <button onClick={() => { if (window.confirm("Dieses Sparziel wirklich löschen?")) { deleteGoal(editId); closeForm(); } }} style={{
+            marginTop: 12, padding: "10px 18px", background: "none",
+            border: `1px solid ${T.expense}40`, borderRadius: 10,
+            color: T.expense, fontSize: 13, fontWeight: 600, cursor: "pointer",
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+          }}>
+            <Icon name="trash" size={16} color={T.expense}/> Sparziel löschen
+          </button>
+        )}
+      </Modal>
       {data.savingsGoals.length === 0 && !showForm && <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Noch keine Sparziele</div>}
       {data.savingsGoals.map(g => {
         const pct = Math.min((g.saved / g.target) * 100, 100);
         const isEditing = editId === g.id && showForm;
         return (
-          <div key={g.id} onClick={() => openEdit(g)} style={{ ...glassCardStyle, padding: "16px 18px", marginBottom: 10, cursor: "pointer", border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border, transition: "all .15s" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ color: T.textPrimary, fontSize: 15, fontWeight: 700 }}>{g.emoji && <span style={{ marginRight: 6 }}>{g.emoji}</span>}{g.name}</span>
+          <SwipeToDelete key={g.id} onDelete={() => deleteGoal(g.id)} T={T}>
+            <div onClick={() => openEdit(g)} style={{ ...glassCardStyle, padding: "16px 18px", cursor: "pointer", border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border, transition: "all .15s" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ color: T.textPrimary, fontSize: 15, fontWeight: 700 }}>{g.emoji && <span style={{ marginRight: 6 }}>{g.emoji}</span>}{g.name}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textSecondary, marginBottom: 6 }}><span>{fmt(g.saved)} gespart</span><span>{pct.toFixed(0)}% von {fmt(g.target)}</span></div>
+              <div style={{ height: 8, background: `${T.textMuted}20`, borderRadius: 4, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${pct}%`, background: pct >= 100 ? T.income : `linear-gradient(90deg, ${T.accent}, #00f0ff)`, borderRadius: 4, transition: "width .5s" }}/>
+              </div>
+              {pct >= 100 && <div style={{ marginTop: 6, fontSize: 12, color: T.income, fontWeight: 600 }}>✓ Ziel erreicht!</div>}
             </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textSecondary, marginBottom: 6 }}><span>{fmt(g.saved)} gespart</span><span>{pct.toFixed(0)}% von {fmt(g.target)}</span></div>
-            <div style={{ height: 8, background: `${T.textMuted}20`, borderRadius: 4, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${pct}%`, background: pct >= 100 ? T.income : `linear-gradient(90deg, ${T.accent}, #00f0ff)`, borderRadius: 4, transition: "width .5s" }}/>
-            </div>
-            {pct >= 100 && <div style={{ marginTop: 6, fontSize: 12, color: T.income, fontWeight: 600 }}>✓ Ziel erreicht!</div>}
-          </div>
+          </SwipeToDelete>
         );
       })}
+      {/* FAB – Neues Sparziel */}
+      <button onClick={openNew} style={{
+        position: "fixed", bottom: 24, right: 24, width: 56, height: 56,
+        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
+        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff"
+      }}>
+        <Icon name="plus" size={24}/>
+      </button>
     </div>
   );
 }
@@ -1043,6 +1142,58 @@ function PredictionPage({ data, T, styles }) {
         </div>
       ) : (
         <>
+          {/* Jahresbilanz */}
+          {(() => {
+            const currentYear = getToday().year;
+            // YTD actual balance for current year
+            const ytdIncome = monthlyData.filter(m => m.year === currentYear).reduce((s, m) => s + m.income, 0);
+            const ytdExpense = monthlyData.filter(m => m.year === currentYear).reduce((s, m) => s + m.expense, 0);
+            const ytdBalance = ytdIncome - ytdExpense;
+            // Sum forecast months that fall in current year
+            let fcIncome = 0, fcExpense = 0;
+            balanceForecast.forEach((_, i) => {
+              let m = lastEntry.month + 1 + i;
+              let y = lastEntry.year;
+              while (m > 11) { m -= 12; y++; }
+              if (y === currentYear) { fcIncome += incEnsemble[i]; fcExpense += expEnsemble[i]; }
+            });
+            const projBalance = ytdBalance + fcIncome - fcExpense;
+            const projColor = projBalance >= 0 ? T.income : T.expense;
+            // 6-month totals
+            const totalFcIncome = incEnsemble.reduce((s, v) => s + v, 0);
+            const totalFcExpense = expEnsemble.reduce((s, v) => s + v, 0);
+            const totalFcBalance = totalFcIncome - totalFcExpense;
+            return (
+              <div style={{ ...glassCardStyle, padding: "18px 20px", marginBottom: 16, border: `1px solid ${projColor}30` }}>
+                <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.5 }}>Jahresprognose {currentYear}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                  <div>
+                    <div style={{ fontSize: 12, color: T.textSecondary, marginBottom: 2 }}>Erwartete Jahresbilanz</div>
+                    <div style={{ fontSize: 28, fontWeight: 800, color: projColor, lineHeight: 1.1 }}>{fmt(projBalance)}</div>
+                    <div style={{ fontSize: 11, color: T.textMuted, marginTop: 4 }}>YTD {fmt(ytdBalance)} + Prognose {fmt(fcIncome - fcExpense)}</div>
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <div style={{ flex: 1, background: `${T.income}10`, borderRadius: 10, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, color: T.textMuted, marginBottom: 2 }}>Prognose Einnahmen</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.income }}>+{fmt(totalFcIncome)}</div>
+                    <div style={{ fontSize: 10, color: T.textMuted }}>{HORIZON} Monate</div>
+                  </div>
+                  <div style={{ flex: 1, background: `${T.expense}10`, borderRadius: 10, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, color: T.textMuted, marginBottom: 2 }}>Prognose Ausgaben</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: T.expense }}>−{fmt(totalFcExpense)}</div>
+                    <div style={{ fontSize: 10, color: T.textMuted }}>{HORIZON} Monate</div>
+                  </div>
+                  <div style={{ flex: 1, background: `${totalFcBalance >= 0 ? T.income : T.expense}10`, borderRadius: 10, padding: "10px 12px" }}>
+                    <div style={{ fontSize: 10, color: T.textMuted, marginBottom: 2 }}>Prognose Bilanz</div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: totalFcBalance >= 0 ? T.income : T.expense }}>{fmt(totalFcBalance)}</div>
+                    <div style={{ fontSize: 10, color: T.textMuted }}>{HORIZON} Monate</div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Summary Cards */}
           <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
             {[
@@ -1186,6 +1337,9 @@ function BudgetPage({ data, setData, monthEntries, T, styles }) {
   const { inputStyle, labelStyle, btnPrimary, btnSecondary, glassCardStyle, chipStyle, selectStyle } = styles;
   const [newCat, setNewCat] = useState("");
   const [newAmount, setNewAmount] = useState("");
+  const [showForm, setShowForm] = useState(false);
+  const [editCat, setEditCat] = useState(null); // cat name being edited
+  const [editAmount, setEditAmount] = useState("");
   const budgets = data.budgets || {};
   const expenseCats = data.categories.expense || [];
 
@@ -1193,13 +1347,18 @@ function BudgetPage({ data, setData, monthEntries, T, styles }) {
     if (!newCat || !newAmount) return;
     setData(prev => ({ ...prev, budgets: { ...prev.budgets, [newCat]: parseFloat(newAmount) } }));
     setNewCat(""); setNewAmount("");
+    setShowForm(false);
   };
   const removeBudget = (cat) => {
     setData(prev => { const b = { ...prev.budgets }; delete b[cat]; return { ...prev, budgets: b }; });
   };
-  const updateBudget = (cat, val) => {
-    setData(prev => ({ ...prev, budgets: { ...prev.budgets, [cat]: parseFloat(val) || 0 } }));
+  const saveBudgetEdit = () => {
+    if (!editCat || !editAmount) return;
+    setData(prev => ({ ...prev, budgets: { ...prev.budgets, [editCat]: parseFloat(editAmount) || 0 } }));
+    setEditCat(null);
   };
+  const openEdit = (cat, limit) => { setEditCat(cat); setEditAmount(String(limit)); };
+  const closeEdit = () => setEditCat(null);
 
   const catsWithBudget = Object.entries(budgets).map(([cat, limit]) => {
     const spent = monthEntries.filter(e => e.type === "expense" && e.category === cat).reduce((s, e) => s + e.amount, 0);
@@ -1213,50 +1372,88 @@ function BudgetPage({ data, setData, monthEntries, T, styles }) {
     <div style={{ padding: "0 16px 100px" }}>
       <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Monatsbudgets</h2>
 
-      {catsWithBudget.length > 0 && catsWithBudget.map(({ cat, limit, spent, pct, remaining }) => {
+      {catsWithBudget.length === 0 && (
+        <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>
+          {availableCats.length === 0 ? "Erstelle zuerst Ausgaben-Kategorien" : "Noch keine Budgets gesetzt – tippe auf + um zu beginnen"}
+        </div>
+      )}
+
+      {catsWithBudget.map(({ cat, limit, spent, pct, remaining }) => {
         const overBudget = remaining < 0;
         const warn = pct >= 80 && pct < 100;
         const barColor = overBudget ? T.expense : warn ? T.warning : T.income;
         const emoji = (() => { const found = expenseCats.find(c => catName(c) === cat); return found ? catEmoji(found) : ""; })();
         return (
-          <div key={cat} style={{ ...glassCardStyle, padding: "14px 16px", marginBottom: 8 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary }}>{emoji && <span style={{ marginRight: 6 }}>{emoji}</span>}{cat}</span>
-              <button onClick={() => removeBudget(cat)} style={{ background: "none", border: "none", cursor: "pointer", padding: 2 }}>
-                <Icon name="x" size={14} color={T.textMuted}/>
-              </button>
+          <SwipeToDelete key={cat} onDelete={() => removeBudget(cat)} T={T}>
+            <div onClick={() => openEdit(cat, limit)} style={{ ...glassCardStyle, padding: "14px 16px", cursor: "pointer" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary }}>{emoji && <span style={{ marginRight: 6 }}>{emoji}</span>}{cat}</span>
+                <span style={{ fontSize: 12, color: T.textMuted }}>{pct.toFixed(0)}%</span>
+              </div>
+              <div style={{ height: 8, background: `${T.textMuted}20`, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
+                <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, background: barColor, borderRadius: 4, transition: "width .5s" }}/>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
+                <span style={{ color: T.textSecondary }}>{fmt(spent)} von {fmt(limit)}</span>
+                <span style={{ color: overBudget ? T.expense : warn ? T.warning : T.income, fontWeight: 600 }}>
+                  {overBudget ? `${fmt(Math.abs(remaining))} über Budget!` : `${fmt(remaining)} übrig`}
+                </span>
+              </div>
             </div>
-            <div style={{ height: 8, background: `${T.textMuted}20`, borderRadius: 4, overflow: "hidden", marginBottom: 6 }}>
-              <div style={{ height: "100%", width: `${Math.min(pct, 100)}%`, background: barColor, borderRadius: 4, transition: "width .5s" }}/>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-              <span style={{ color: T.textSecondary }}>{fmt(spent)} von {fmt(limit)}</span>
-              <span style={{ color: overBudget ? T.expense : warn ? T.warning : T.income, fontWeight: 600 }}>
-                {overBudget ? `${fmt(Math.abs(remaining))} über Budget!` : `${fmt(remaining)} übrig`}
-              </span>
-            </div>
-            <div style={{ marginTop: 8 }}>
-              <input type="number" value={limit} onChange={e => updateBudget(cat, e.target.value)} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12, width: 120 }}/>
-            </div>
-          </div>
+          </SwipeToDelete>
         );
       })}
 
-      {availableCats.length > 0 && (
-        <div style={{ ...glassCardStyle, padding: 14, marginTop: 16, border: `1px solid ${T.accent}30` }}>
-          <div style={{ fontSize: 13, fontWeight: 600, color: T.textPrimary, marginBottom: 10 }}>Budget hinzufügen</div>
-          <select value={newCat} onChange={e => setNewCat(e.target.value)} style={{ ...selectStyle, marginBottom: 8 }}>
-            <option value="">Kategorie wählen...</option>
-            {availableCats.map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
-          </select>
-          <input type="number" value={newAmount} onChange={e => setNewAmount(e.target.value)} style={{ ...inputStyle, marginBottom: 8 }} placeholder="Monatliches Limit (€)"/>
-          <button onClick={addBudget} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Budget setzen</button>
+      {/* Edit Modal */}
+      <Modal open={!!editCat} onClose={closeEdit} title="Budget bearbeiten" T={T}>
+        <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 4 }}>Kategorie</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary, marginBottom: 16 }}>
+          {editCat && (() => { const found = expenseCats.find(c => catName(c) === editCat); return found ? `${catEmoji(found)} ${editCat}` : editCat; })()}
         </div>
-      )}
+        <label style={labelStyle}>Monatliches Limit (€)</label>
+        <input type="number" inputMode="decimal" value={editAmount} onChange={e => setEditAmount(e.target.value)} style={inputStyle} autoFocus/>
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+          <button onClick={saveBudgetEdit} style={btnPrimary}>Speichern</button>
+        </div>
+        <button onClick={() => { if (window.confirm("Budget wirklich löschen?")) { removeBudget(editCat); closeEdit(); } }} style={{
+          marginTop: 12, padding: "10px 18px", background: "none",
+          border: `1px solid ${T.expense}40`, borderRadius: 10,
+          color: T.expense, fontSize: 13, fontWeight: 600, cursor: "pointer",
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+        }}>
+          <Icon name="trash" size={16} color={T.expense}/> Budget löschen
+        </button>
+      </Modal>
 
-      {catsWithBudget.length === 0 && availableCats.length === 0 && (
-        <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Erstelle zuerst Ausgaben-Kategorien</div>
-      )}
+      {/* Add Modal */}
+      <Modal open={showForm} onClose={() => { setShowForm(false); setNewCat(""); setNewAmount(""); }} title="Budget setzen" T={T}>
+        {availableCats.length === 0 ? (
+          <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: "16px 0" }}>Alle Kategorien haben bereits ein Budget.</div>
+        ) : (
+          <>
+            <label style={labelStyle}>Kategorie</label>
+            <select value={newCat} onChange={e => setNewCat(e.target.value)} style={selectStyle}>
+              <option value="">Kategorie wählen...</option>
+              {availableCats.map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
+            </select>
+            <label style={labelStyle}>Monatliches Limit (€)</label>
+            <input type="number" inputMode="decimal" value={newAmount} onChange={e => setNewAmount(e.target.value)} style={inputStyle} placeholder="0.00"/>
+            <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+              <button onClick={addBudget} style={btnPrimary}>Budget setzen</button>
+            </div>
+          </>
+        )}
+      </Modal>
+
+      {/* FAB – Neues Budget */}
+      <button onClick={() => setShowForm(true)} style={{
+        position: "fixed", bottom: 24, right: 24, width: 56, height: 56,
+        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
+        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff"
+      }}>
+        <Icon name="plus" size={24}/>
+      </button>
     </div>
   );
 }
@@ -1412,7 +1609,14 @@ const SwipeToDelete = ({ onDelete, children, T, disabled, onSwipeActive }) => {
       ref.current.style.transition = "transform .3s ease, opacity .3s ease";
       ref.current.style.transform = `translateX(-${containerWidth.current}px)`;
       ref.current.style.opacity = "0";
-      setTimeout(() => onDelete(), 300);
+      const reset = () => {
+        if (ref.current) {
+          ref.current.style.transition = "transform .3s ease, opacity .3s ease";
+          ref.current.style.transform = "translateX(0)";
+          ref.current.style.opacity = "1";
+        }
+      };
+      setTimeout(() => onDelete(reset), 300);
     } else {
       // Nicht weit genug → zurück zur Ausgangsposition
       ref.current.style.transition = "transform .3s ease";
@@ -1524,7 +1728,7 @@ function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, vi
 // ════════════════════════════════════════════════════════════
 //  SETTINGS PAGE
 // ════════════════════════════════════════════════════════════
-function SettingsPage({ data, setData, T, styles }) {
+function SettingsPage({ data, setData, T, styles, theme, toggleTheme }) {
   const { btnPrimary, glassCardStyle } = styles;
   const settings = data.settings || {};
   const [reminderEnabled, setReminderEnabled] = useState(!!settings.reminderEnabled);
@@ -1569,6 +1773,23 @@ function SettingsPage({ data, setData, T, styles }) {
   return (
     <div style={{ padding: "0 16px 100px" }}>
       <div style={{ fontSize: 20, fontWeight: 800, color: T.textPrimary, marginBottom: 20, marginTop: 8 }}>Einstellungen</div>
+
+      {/* Erscheinungsbild */}
+      <div style={{ ...glassCardStyle, padding: "20px", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+          <Icon name={theme === "dark" ? "moon" : "sun"} size={18} color={T.accent}/>
+          <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary }}>Erscheinungsbild</div>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600 }}>Dark Mode</div>
+            <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{theme === "dark" ? "Dunkles Design aktiv" : "Helles Design aktiv"}</div>
+          </div>
+          <button onClick={toggleTheme} style={toggleStyle(theme === "dark")}>
+            <span style={knobStyle(theme === "dark")}/>
+          </button>
+        </div>
+      </div>
 
       {/* Tägliche Erinnerung */}
       <div style={{ ...glassCardStyle, padding: "20px", marginBottom: 16 }}>
@@ -1665,7 +1886,8 @@ export default function BudgetPlanner() {
   const [newEntryOpen, setNewEntryOpen] = useState(false);
   const [editEntry, setEditEntry] = useState(null);
   const [theme, setTheme] = useState(() => {
-    // Systemeinstellung als Standard verwenden
+    const saved = typeof window !== "undefined" ? localStorage.getItem("budget-planner-theme") : null;
+    if (saved === "dark" || saved === "light") return saved;
     if (typeof window !== "undefined" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches) {
       return "dark";
     }
@@ -1676,6 +1898,12 @@ export default function BudgetPlanner() {
 
   const T = themes[theme];
   const isDark = theme === "dark";
+
+  const toggleTheme = () => setTheme(t => {
+    const next = t === "dark" ? "light" : "dark";
+    localStorage.setItem("budget-planner-theme", next);
+    return next;
+  });
 
   const balanceColor = (val) => val < 0 ? T.expense : val <= 500 ? T.warning : T.income;
 
@@ -2107,6 +2335,15 @@ export default function BudgetPlanner() {
           <EntryItem e={e} onClick={() => openEdit(e)} emojiLookup={emojiLookup} colorLookup={colorLookup} T={T}/>
         </SwipeToDelete>
       ))}
+      {/* FAB – Neuer Eintrag */}
+      <button onClick={() => { setEditEntry(null); setNewEntryOpen(true); }} style={{
+        position: "fixed", bottom: 24, right: 24, width: 56, height: 56,
+        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
+        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff"
+      }}>
+        <Icon name="plus" size={24}/>
+      </button>
     </div>
   );
 
@@ -2244,11 +2481,11 @@ export default function BudgetPlanner() {
 
   const menuItems = [
     { id: "home", icon: "home", label: "Übersicht" },
-    { id: "budget", icon: "wallet", label: "Budgets" },
     { id: "search", icon: "search", label: "Suche & Filter" },
     { id: "income-analysis", icon: "trendUp", label: "Einnahmen-Analyse" },
     { id: "expense-analysis", icon: "trendDown", label: "Ausgaben-Analyse" },
     { id: "categories", icon: "tag", label: "Kategorien" },
+    { id: "budget", icon: "wallet", label: "Budgets" },
     { id: "recurring", icon: "repeat", label: "Wiederkehrend" },
     { id: "savings", icon: "target", label: "Sparziele" },
     { id: "yearly", icon: "calendar", label: "Jahresübersicht" },
@@ -2270,7 +2507,7 @@ export default function BudgetPlanner() {
       case "yearly": return renderYearly();
       case "prediction": return <PredictionPage key="prediction" data={data} T={T} styles={styles}/>;
       case "import-export": return renderImportExport();
-      case "settings": return <SettingsPage key="settings" data={data} setData={setData} T={T} styles={styles}/>;
+      case "settings": return <SettingsPage key="settings" data={data} setData={setData} T={T} styles={styles} theme={theme} toggleTheme={toggleTheme}/>;
       default: return renderHome();
     }
   };
@@ -2348,7 +2585,7 @@ export default function BudgetPlanner() {
             Melde dich mit deinem Google-Konto an,<br/>um deine Daten auf allen Geräten zu synchronisieren.
           </div>
 
-          <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} style={{
+          <button onClick={toggleTheme} style={{
             marginTop: 20, background: "none", border: "none", cursor: "pointer",
             color: T.textMuted, fontSize: 12, display: "flex", alignItems: "center", gap: 6,
             margin: "20px auto 0"
@@ -2434,11 +2671,12 @@ export default function BudgetPlanner() {
         display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 16px",
         background: T.headerBg, backdropFilter: T.glassBlur,
         borderBottom: `1px solid ${T.headerBorder}`,
-        position: "sticky", top: 0, zIndex: 100,
+        position: "fixed", top: 0, zIndex: 100,
+        width: "100%", maxWidth: 520, left: "50%", transform: "translateX(-50%)",
         boxShadow: isDark ? "none" : "0 4px 20px rgba(100,80,160,0.06)"
       }}>
         <button onClick={() => setMenuOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: T.textPrimary }}><Icon name="menu" size={22}/></button>
-        <span onClick={() => setPage("home")} style={{ fontSize: 16, fontWeight: 800, letterSpacing: 1, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, ...(isDark ? { animation: "neonPulse 3s ease-in-out infinite" } : {}) }}>
+        <span onClick={() => setPage("home")} style={{ fontSize: 20, fontWeight: 800, letterSpacing: 1.5, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, ...(isDark ? { animation: "neonPulse 3s ease-in-out infinite" } : {}) }}>
           <span style={{ color: T.titleGlow1, textShadow: T.titleShadow1 }}>Budget</span>{" "}
           <span style={{ color: T.titleGlow2, textShadow: T.titleShadow2 }}>Planer</span>
           <span title={syncStatus === "synced" ? "Cloud-Sync aktiv" : syncStatus === "connecting" ? "Verbinde..." : "Offline – Daten lokal gespeichert"} style={{
@@ -2448,20 +2686,7 @@ export default function BudgetPlanner() {
             animation: syncStatus === "connecting" ? "neonPulse 1.5s ease-in-out infinite" : "none"
           }}/>
         </span>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button onClick={() => setTheme(t => t === "dark" ? "light" : "dark")} style={{
-            background: T.glassCard, backdropFilter: T.glassBlur, border: `1px solid ${T.glassBorder}`,
-            borderRadius: 10, padding: "7px 8px", cursor: "pointer", display: "flex", alignItems: "center",
-            color: T.textPrimary, transition: "all .3s"
-          }} title={isDark ? "Light Mode" : "Dark Mode"}>
-            <Icon name={isDark ? "sun" : "moon"} size={16}/>
-          </button>
-          <button onClick={() => { setEditEntry(null); setNewEntryOpen(true); }} style={{
-            background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`, border: "none", borderRadius: 10,
-            padding: "8px 14px", cursor: "pointer", display: "flex", alignItems: "center", gap: 6,
-            color: "#fff", fontSize: 12, fontWeight: 700, boxShadow: `0 4px 16px ${T.accent}30`, whiteSpace: "nowrap"
-          }}><Icon name="plus" size={14}/> Neu</button>
-        </div>
+        <div style={{ width: 32 }}/>
       </div>
 
       {/* Side Menu */}
@@ -2516,7 +2741,7 @@ export default function BudgetPlanner() {
         </div>
       )}
 
-      <div style={{ paddingTop: 8, position: "relative", zIndex: 1 }}>{renderPage()}</div>
+      <div style={{ paddingTop: 69, position: "relative", zIndex: 1 }}>{renderPage()}</div>
 
       <EntryModal open={newEntryOpen} onClose={() => { setNewEntryOpen(false); setEditEntry(null); }} editEntry={editEntry} onSave={handleSaveEntry} onDelete={handleDeleteEntry} categories={data.categories} viewMonth={viewMonth} viewYear={viewYear} T={T} styles={styles}/>
 
