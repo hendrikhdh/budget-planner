@@ -1705,7 +1705,7 @@ function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, vi
       <label style={labelStyle}>Beschreibung</label>
       <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} style={inputStyle} placeholder="Wofür?"/>
       <label style={labelStyle}>Datum</label>
-      <input type="date" value={form.date} onChange={e => { setForm(f => ({ ...f, date: e.target.value })); setErrors(er => ({ ...er, date: null })); }} style={{ ...inputErr("date"), display: "block", WebkitAppearance: "textfield" }}/>
+      <input type="date" value={form.date} onChange={e => { setForm(f => ({ ...f, date: e.target.value })); setErrors(er => ({ ...er, date: null })); }} style={{ ...inputErr("date"), display: "block", WebkitAppearance: "none", appearance: "none", minWidth: 0 }}/>
       {errors.date && <div style={errorStyle}>⚠ {errors.date}</div>}
       <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
         <button onClick={save} style={btnPrimary}>{isEdit ? "Speichern" : "Hinzufügen"}</button>
