@@ -465,9 +465,9 @@ const EntryItem = ({ e, onClick, emojiLookup, colorLookup, T }) => {
 const MonthNav = ({ viewMonth, viewYear, prevMonth, nextMonth, goToday, T, btnSecondary }) => (
   <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 12, margin: "16px 0" }}>
     <button onClick={prevMonth} style={{ ...btnSecondary, padding: "8px", borderRadius: "50%", display: "flex" }}><Icon name="left" size={18}/></button>
-    <span style={{ fontSize: 16, fontWeight: 700, color: T.textPrimary, minWidth: 160, textAlign: "center" }}>{monthName(viewMonth, viewYear)}</span>
+    <span style={{ fontSize: 20, fontWeight: 700, color: T.textPrimary, minWidth: 170, textAlign: "center" }}>{monthName(viewMonth, viewYear)}</span>
     <button onClick={nextMonth} style={{ ...btnSecondary, padding: "8px", borderRadius: "50%", display: "flex" }}><Icon name="right" size={18}/></button>
-    <button onClick={goToday} style={{ ...btnSecondary, padding: "6px 12px", fontSize: 11, fontWeight: 700 }}>Heute</button>
+    <button onClick={goToday} style={{ ...btnSecondary, padding: "8px 16px", fontSize: 13, fontWeight: 700 }}>Heute</button>
   </div>
 );
 
@@ -583,9 +583,7 @@ function CategoriesPage({ data, setData, T, styles }) {
                 <span style={{ fontSize: 18, minWidth: 24, textAlign: "center" }}>{catEmoji(cat) || "·"}</span>
                 <span style={{ color: T.textPrimary, fontSize: 14 }}>{catName(cat)}</span>
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <Icon name={isEditing ? "x" : "edit"} size={15} color={T.textMuted}/>
-              </div>
+              {isEditing && <Icon name="x" size={15} color={T.textMuted}/>}
             </div>
             {isEditing && (
               <div style={{
@@ -1340,6 +1338,8 @@ function BudgetPage({ data, setData, monthEntries, T, styles }) {
   const [newCat, setNewCat] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editCat, setEditCat] = useState(null); // cat name being edited
+  const [editAmount, setEditAmount] = useState("");
   const budgets = data.budgets || {};
   const expenseCats = data.categories.expense || [];
 
@@ -1352,9 +1352,13 @@ function BudgetPage({ data, setData, monthEntries, T, styles }) {
   const removeBudget = (cat) => {
     setData(prev => { const b = { ...prev.budgets }; delete b[cat]; return { ...prev, budgets: b }; });
   };
-  const updateBudget = (cat, val) => {
-    setData(prev => ({ ...prev, budgets: { ...prev.budgets, [cat]: parseFloat(val) || 0 } }));
+  const saveBudgetEdit = () => {
+    if (!editCat || !editAmount) return;
+    setData(prev => ({ ...prev, budgets: { ...prev.budgets, [editCat]: parseFloat(editAmount) || 0 } }));
+    setEditCat(null);
   };
+  const openEdit = (cat, limit) => { setEditCat(cat); setEditAmount(String(limit)); };
+  const closeEdit = () => setEditCat(null);
 
   const catsWithBudget = Object.entries(budgets).map(([cat, limit]) => {
     const spent = monthEntries.filter(e => e.type === "expense" && e.category === cat).reduce((s, e) => s + e.amount, 0);
@@ -1381,7 +1385,7 @@ function BudgetPage({ data, setData, monthEntries, T, styles }) {
         const emoji = (() => { const found = expenseCats.find(c => catName(c) === cat); return found ? catEmoji(found) : ""; })();
         return (
           <SwipeToDelete key={cat} onDelete={() => removeBudget(cat)} T={T}>
-            <div style={{ ...glassCardStyle, padding: "14px 16px" }}>
+            <div onClick={() => openEdit(cat, limit)} style={{ ...glassCardStyle, padding: "14px 16px", cursor: "pointer" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <span style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary }}>{emoji && <span style={{ marginRight: 6 }}>{emoji}</span>}{cat}</span>
                 <span style={{ fontSize: 12, color: T.textMuted }}>{pct.toFixed(0)}%</span>
@@ -1395,15 +1399,33 @@ function BudgetPage({ data, setData, monthEntries, T, styles }) {
                   {overBudget ? `${fmt(Math.abs(remaining))} über Budget!` : `${fmt(remaining)} übrig`}
                 </span>
               </div>
-              <div style={{ marginTop: 8 }}>
-                <input type="number" value={limit} onChange={e => updateBudget(cat, e.target.value)} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12, width: 120 }}/>
-              </div>
             </div>
           </SwipeToDelete>
         );
       })}
 
-      {/* Budget-Form Modal */}
+      {/* Edit Modal */}
+      <Modal open={!!editCat} onClose={closeEdit} title="Budget bearbeiten" T={T}>
+        <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 4 }}>Kategorie</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary, marginBottom: 16 }}>
+          {editCat && (() => { const found = expenseCats.find(c => catName(c) === editCat); return found ? `${catEmoji(found)} ${editCat}` : editCat; })()}
+        </div>
+        <label style={labelStyle}>Monatliches Limit (€)</label>
+        <input type="number" inputMode="decimal" value={editAmount} onChange={e => setEditAmount(e.target.value)} style={inputStyle} autoFocus/>
+        <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
+          <button onClick={saveBudgetEdit} style={btnPrimary}>Speichern</button>
+        </div>
+        <button onClick={() => { if (window.confirm("Budget wirklich löschen?")) { removeBudget(editCat); closeEdit(); } }} style={{
+          marginTop: 12, padding: "10px 18px", background: "none",
+          border: `1px solid ${T.expense}40`, borderRadius: 10,
+          color: T.expense, fontSize: 13, fontWeight: 600, cursor: "pointer",
+          width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
+        }}>
+          <Icon name="trash" size={16} color={T.expense}/> Budget löschen
+        </button>
+      </Modal>
+
+      {/* Add Modal */}
       <Modal open={showForm} onClose={() => { setShowForm(false); setNewCat(""); setNewAmount(""); }} title="Budget setzen" T={T}>
         {availableCats.length === 0 ? (
           <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: "16px 0" }}>Alle Kategorien haben bereits ein Budget.</div>
@@ -2654,7 +2676,7 @@ export default function BudgetPlanner() {
         boxShadow: isDark ? "none" : "0 4px 20px rgba(100,80,160,0.06)"
       }}>
         <button onClick={() => setMenuOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: T.textPrimary }}><Icon name="menu" size={22}/></button>
-        <span onClick={() => setPage("home")} style={{ fontSize: 16, fontWeight: 800, letterSpacing: 1, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, ...(isDark ? { animation: "neonPulse 3s ease-in-out infinite" } : {}) }}>
+        <span onClick={() => setPage("home")} style={{ fontSize: 20, fontWeight: 800, letterSpacing: 1.5, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, ...(isDark ? { animation: "neonPulse 3s ease-in-out infinite" } : {}) }}>
           <span style={{ color: T.titleGlow1, textShadow: T.titleShadow1 }}>Budget</span>{" "}
           <span style={{ color: T.titleGlow2, textShadow: T.titleShadow2 }}>Planer</span>
           <span title={syncStatus === "synced" ? "Cloud-Sync aktiv" : syncStatus === "connecting" ? "Verbinde..." : "Offline – Daten lokal gespeichert"} style={{
