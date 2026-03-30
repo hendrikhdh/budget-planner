@@ -875,7 +875,7 @@ function SavingsPage({ data, setData, T, styles }) {
         const isEditing = editId === g.id && showForm;
         return (
           <SwipeToDelete key={g.id} onDelete={() => deleteGoal(g.id)} T={T}>
-            <div onClick={() => openEdit(g)} style={{ ...glassCardStyle, padding: "16px 18px", marginBottom: 10, cursor: "pointer", border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border, transition: "all .15s" }}>
+            <div onClick={() => openEdit(g)} style={{ ...glassCardStyle, padding: "16px 18px", cursor: "pointer", border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border, transition: "all .15s" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <span style={{ color: T.textPrimary, fontSize: 15, fontWeight: 700 }}>{g.emoji && <span style={{ marginRight: 6 }}>{g.emoji}</span>}{g.name}</span>
               </div>
@@ -1381,7 +1381,7 @@ function BudgetPage({ data, setData, monthEntries, T, styles }) {
         const emoji = (() => { const found = expenseCats.find(c => catName(c) === cat); return found ? catEmoji(found) : ""; })();
         return (
           <SwipeToDelete key={cat} onDelete={() => removeBudget(cat)} T={T}>
-            <div style={{ ...glassCardStyle, padding: "14px 16px", marginBottom: 8 }}>
+            <div style={{ ...glassCardStyle, padding: "14px 16px" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                 <span style={{ fontSize: 14, fontWeight: 600, color: T.textPrimary }}>{emoji && <span style={{ marginRight: 6 }}>{emoji}</span>}{cat}</span>
                 <span style={{ fontSize: 12, color: T.textMuted }}>{pct.toFixed(0)}%</span>
@@ -2459,11 +2459,11 @@ export default function BudgetPlanner() {
 
   const menuItems = [
     { id: "home", icon: "home", label: "Übersicht" },
-    { id: "budget", icon: "wallet", label: "Budgets" },
     { id: "search", icon: "search", label: "Suche & Filter" },
     { id: "income-analysis", icon: "trendUp", label: "Einnahmen-Analyse" },
     { id: "expense-analysis", icon: "trendDown", label: "Ausgaben-Analyse" },
     { id: "categories", icon: "tag", label: "Kategorien" },
+    { id: "budget", icon: "wallet", label: "Budgets" },
     { id: "recurring", icon: "repeat", label: "Wiederkehrend" },
     { id: "savings", icon: "target", label: "Sparziele" },
     { id: "yearly", icon: "calendar", label: "Jahresübersicht" },
