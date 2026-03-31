@@ -2677,7 +2677,7 @@ export default function BudgetPlanner() {
       }}>
         <button onClick={() => setMenuOpen(true)} style={{ background: "none", border: "none", cursor: "pointer", padding: 4, color: T.textPrimary }}><Icon name="menu" size={22}/></button>
         <span onClick={() => setPage("home")} style={{ fontSize: 20, fontWeight: 800, letterSpacing: 1.5, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, ...(isDark ? { animation: "neonPulse 3s ease-in-out infinite" } : {}) }}>
-          <img src="/icon-180x180.png" alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "contain", flexShrink: 0 }} />
+          <img src={`${import.meta.env.BASE_URL}icon-180x180.png`} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "contain", flexShrink: 0 }} />
           <span style={{ color: T.titleGlow1, textShadow: T.titleShadow1 }}>Budget</span>{" "}
           <span style={{ color: T.titleGlow2, textShadow: T.titleShadow2 }}>Planer</span>
           <span title={syncStatus === "synced" ? "Cloud-Sync aktiv" : syncStatus === "connecting" ? "Verbinde..." : "Offline – Daten lokal gespeichert"} style={{
@@ -2703,7 +2703,7 @@ export default function BudgetPlanner() {
           }}>
             <div style={{ padding: "0 20px 20px", borderBottom: `1px solid ${T.headerBorder}`, marginBottom: 8 }}>
               <div onClick={() => navigate("home")} style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-                <img src="/icon-180x180.png" alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "contain", flexShrink: 0 }} />
+                <img src={`${import.meta.env.BASE_URL}icon-180x180.png`} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "contain", flexShrink: 0 }} />
                 <span style={{ color: T.titleGlow1, textShadow: isDark ? T.titleShadow1 : "none" }}>Budget</span>{" "}
                 <span style={{ color: T.titleGlow2, textShadow: isDark ? T.titleShadow2 : "none" }}>Planer</span>
               </div>
