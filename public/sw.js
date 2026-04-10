@@ -1,7 +1,7 @@
-// Budget Planer – Service Worker
+// Money Maker – Service Worker
 // Sendet täglich eine Erinnerung zur eingestellten Uhrzeit.
 
-const CACHE_NAME = "budget-planer-v1";
+const CACHE_NAME = "money-maker-v1";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (e) => e.waitUntil(self.clients.claim()));
@@ -28,13 +28,13 @@ function scheduleReminder(hour, minute) {
   const delay = next.getTime() - now.getTime();
 
   self._reminderTimeout = setTimeout(() => {
-    self.registration.showNotification("💰 Budget Planer", {
+    self.registration.showNotification("💰 Money Maker", {
       body: "Hast du heute schon deine Einnahmen und Ausgaben eingetragen?",
-      icon: "/favicon.svg",
-      badge: "/favicon.svg",
+      icon: "/budget-planner/icons/icon-192x192.png",
+      badge: "/budget-planner/icons/icon-192x192.png",
       tag: "daily-reminder",
       renotify: true,
-      data: { url: "/" }
+      data: { url: "/budget-planner/" }
     });
     // Täglich wiederholen
     scheduleReminder(hour, minute);

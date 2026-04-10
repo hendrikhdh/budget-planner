@@ -1,7 +1,7 @@
 {
-  "name": "Budget Planer",
-  "short_name": "Budget",
-  "description": "Persönlicher Budget Planer – Einnahmen und Ausgaben im Überblick",
+  "name": "Money Maker",
+  "short_name": "Money Maker",
+  "description": "Money Maker – Einnahmen und Ausgaben im Überblick",
   "start_url": "/budget-planner/",
   "display": "standalone",
   "background_color": "#ffffff",
@@ -9,9 +9,21 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "/budget-planner/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/budget-planner/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/budget-planner/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
       "purpose": "any maskable"
     }
   ]
