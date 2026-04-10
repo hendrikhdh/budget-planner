@@ -28,7 +28,7 @@ export function SideMenu({ T, isDark, page, userInfo, onClose, onNavigate, onLog
       }}>
         <div style={{ padding: "0 20px 20px", borderBottom: `1px solid ${T.headerBorder}`, marginBottom: 8 }}>
           <div onClick={() => onNavigate("home")} style={{ fontSize: 22, fontWeight: 800, letterSpacing: 1, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 }}>
-            <img src="/icon-180x180.png" alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "contain", flexShrink: 0 }}/>
+            <img src={`${import.meta.env.BASE_URL}icons/icon-180x180.png`} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "contain", flexShrink: 0 }}/>
             <span style={{ color: T.titleGlow1, textShadow: isDark ? T.titleShadow1 : "none" }}>Budget</span>{" "}
             <span style={{ color: T.titleGlow2, textShadow: isDark ? T.titleShadow2 : "none" }}>Planer</span>
           </div>
