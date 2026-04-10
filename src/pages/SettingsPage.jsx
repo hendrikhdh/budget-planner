@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "../components/Icon.jsx";
 
-export function SettingsPage({ data, setData, T, styles, theme, toggleTheme }) {
+export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syncStatus }) {
   const { btnPrimary, glassCardStyle } = styles;
   const settings = data.settings || {};
   const [reminderEnabled, setReminderEnabled] = useState(!!settings.reminderEnabled);
@@ -43,9 +43,20 @@ export function SettingsPage({ data, setData, T, styles, theme, toggleTheme }) {
   const swSupported = "serviceWorker" in navigator;
   const notifSupported = typeof Notification !== "undefined";
 
+  const syncColor = syncStatus === "synced" ? T.income : syncStatus === "connecting" ? T.warning : T.expense;
+  const syncLabel = syncStatus === "synced" ? "Cloud-Sync aktiv" : syncStatus === "connecting" ? "Verbinde..." : "Offline – Daten lokal gespeichert";
+
   return (
     <div style={{ padding: "0 16px 100px" }}>
-      <div style={{ fontSize: 20, fontWeight: 800, color: T.textPrimary, marginBottom: 20, marginTop: 8 }}>Einstellungen</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, marginTop: 8 }}>
+        <div style={{ fontSize: 20, fontWeight: 800, color: T.textPrimary }}>Einstellungen</div>
+        <span title={syncLabel} style={{
+          width: 9, height: 9, borderRadius: "50%", flexShrink: 0,
+          background: syncColor,
+          boxShadow: `0 0 6px ${syncColor}60`,
+          animation: syncStatus === "connecting" ? "neonPulse 1.5s ease-in-out infinite" : "none"
+        }}/>
+      </div>
       <div style={{ ...glassCardStyle, padding: "20px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
           <Icon name={theme === "dark" ? "moon" : "sun"} size={18} color={T.accent}/>

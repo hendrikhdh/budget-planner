@@ -135,7 +135,7 @@ export default function BudgetPlanner() {
       case "recurring": return <RecurringPage key="recurring" data={data} setData={setData} T={T} styles={styles}/>;
       case "savings": return <SavingsPage key="savings" data={data} setData={setData} T={T} styles={styles}/>;
       case "prediction": return <PredictionPage key="prediction" data={data} T={T} styles={styles}/>;
-      case "settings": return <SettingsPage key="settings" data={data} setData={setData} T={T} styles={styles} theme={theme} toggleTheme={toggleTheme}/>;
+      case "settings": return <SettingsPage key="settings" data={data} setData={setData} T={T} styles={styles} theme={theme} toggleTheme={toggleTheme} syncStatus={syncStatus}/>;
       default:
         return <HomePage data={data} T={T} styles={styles} isDark={isDark}
           viewMonth={viewMonth} viewYear={viewYear} prevMonth={prevMonth} nextMonth={nextMonth} goToday={goToday}
@@ -167,7 +167,7 @@ export default function BudgetPlanner() {
       <AppShellStyles T={T}/>
       <BackgroundOrbs isDark={isDark}/>
 
-      <AppHeader T={T} isDark={isDark} syncStatus={syncStatus}
+      <AppHeader T={T} isDark={isDark}
         onMenu={() => setMenuOpen(true)} onTitleClick={() => setPage("home")}/>
 
       {menuOpen && (

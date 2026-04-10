@@ -35,8 +35,8 @@ export function LoginScreen({ T, isDark, loginError, onLogin, toggleTheme }) {
       }}>
         <div style={{ fontSize: 48, marginBottom: 16 }}>💰</div>
         <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: 1, marginBottom: 4 }}>
-          <span style={{ color: T.titleGlow1, textShadow: isDark ? T.titleShadow1 : "none" }}>Budget</span>{" "}
-          <span style={{ color: T.titleGlow2, textShadow: isDark ? T.titleShadow2 : "none" }}>Planer</span>
+          <span style={{ color: T.titleGlow1, textShadow: isDark ? T.titleShadow1 : "none" }}>Money</span>{" "}
+          <span style={{ color: T.titleGlow2, textShadow: isDark ? T.titleShadow2 : "none" }}>Maker</span>
         </div>
         <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 32 }}>Deine Finanzen im Blick – auf allen Geräten</div>
 

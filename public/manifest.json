@@ -1,7 +1,7 @@
 {
-  "name": "Budget Planer",
-  "short_name": "Budget",
-  "description": "Persönlicher Budget Planer – Einnahmen und Ausgaben im Überblick",
+  "name": "Money Maker",
+  "short_name": "Money Maker",
+  "description": "Money Maker – Einnahmen und Ausgaben im Überblick",
   "start_url": "/budget-planner/",
   "display": "standalone",
   "background_color": "#ffffff",
