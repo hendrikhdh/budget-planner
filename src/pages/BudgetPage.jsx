@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Icon } from "../components/Icon.jsx";
 import { Modal } from "../components/Modal.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
-import { catName, catEmoji } from "../utils/categories.js";
+import { ConfirmDialog } from "../components/layout/ConfirmDialog.jsx";
+import { catName, catEmoji, sortCategoriesByUsage } from "../utils/categories.js";
 import { fmt } from "../utils/helpers.js";
 
 export function BudgetPage({ data, setData, monthEntries, T, styles }) {
@@ -12,6 +13,7 @@ export function BudgetPage({ data, setData, monthEntries, T, styles }) {
   const [showForm, setShowForm] = useState(false);
   const [editCat, setEditCat] = useState(null);
   const [editAmount, setEditAmount] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(null);
   const budgets = data.budgets || {};
   const expenseCats = data.categories.expense || [];
 
@@ -38,7 +40,10 @@ export function BudgetPage({ data, setData, monthEntries, T, styles }) {
     return { cat, limit, spent, pct, remaining: limit - spent };
   }).sort((a, b) => b.pct - a.pct);
 
-  const availableCats = expenseCats.filter(c => !budgets[catName(c)]);
+  const availableCats = sortCategoriesByUsage(
+    expenseCats.filter(c => !budgets[catName(c)]),
+    data.entries, "expense"
+  );
 
   return (
     <div style={{ padding: "0 16px 100px" }}>
@@ -84,8 +89,8 @@ export function BudgetPage({ data, setData, monthEntries, T, styles }) {
         <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
           <button onClick={saveBudgetEdit} style={btnPrimary}>Speichern</button>
         </div>
-        <button onClick={() => { if (window.confirm("Budget wirklich löschen?")) { removeBudget(editCat); closeEdit(); } }} style={{
-          marginTop: 12, padding: "10px 18px", background: "none",
+        <button onClick={() => setConfirmDelete(editCat)} style={{
+          marginTop: 12, padding: "12px 18px", minHeight: 44, background: "none",
           border: `1px solid ${T.expense}40`, borderRadius: 10,
           color: T.expense, fontSize: 13, fontWeight: 600, cursor: "pointer",
           width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
@@ -93,6 +98,15 @@ export function BudgetPage({ data, setData, monthEntries, T, styles }) {
           <Icon name="trash" size={16} color={T.expense}/> Budget löschen
         </button>
       </Modal>
+
+      {confirmDelete && (
+        <ConfirmDialog T={T} styles={styles} danger
+          title="Budget löschen?"
+          text={`Das Budget für „${confirmDelete}" wird entfernt.`}
+          confirmLabel="Löschen"
+          onConfirm={() => { removeBudget(confirmDelete); setConfirmDelete(null); closeEdit(); }}
+          onCancel={() => setConfirmDelete(null)}/>
+      )}
 
       <Modal open={showForm} onClose={() => { setShowForm(false); setNewCat(""); setNewAmount(""); }} title="Budget setzen" T={T}>
         {availableCats.length === 0 ? (
@@ -113,13 +127,17 @@ export function BudgetPage({ data, setData, monthEntries, T, styles }) {
         )}
       </Modal>
 
-      <button onClick={() => setShowForm(true)} style={{
-        position: "fixed", bottom: 24, right: 24, width: 56, height: 56,
+      <button onClick={() => setShowForm(true)} aria-label="Neues Budget" style={{
+        position: "fixed",
+        bottom: "calc(88px + env(safe-area-inset-bottom))",
+        right: "calc(20px + env(safe-area-inset-right))",
+        width: 60, height: 60,
         borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
         border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff"
+        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff",
+        WebkitTapHighlightColor: "transparent"
       }}>
-        <Icon name="plus" size={24}/>
+        <Icon name="plus" size={26}/>
       </button>
     </div>
   );

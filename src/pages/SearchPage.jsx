@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { EntryItem } from "../components/EntryItem.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
-import { catName } from "../utils/categories.js";
+import { catName, sortCategoriesByUsage } from "../utils/categories.js";
 import { fmt } from "../utils/helpers.js";
 
 export function SearchPage({ data, openEdit, onDeleteEntry, emojiLookup, colorLookup, T, styles }) {
@@ -15,7 +15,8 @@ export function SearchPage({ data, openEdit, onDeleteEntry, emojiLookup, colorLo
   const [showFilters, setShowFilters] = useState(false);
 
   const allCats = [...(data.categories.income || []), ...(data.categories.expense || [])];
-  const uniqueCats = [...new Set(allCats.map(c => catName(c)))];
+  const sortedAllCats = sortCategoriesByUsage(allCats, data.entries, null);
+  const uniqueCats = [...new Set(sortedAllCats.map(c => catName(c)))];
 
   const results = useMemo(() => {
     let filtered = data.entries;

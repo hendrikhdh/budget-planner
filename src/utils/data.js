@@ -1,6 +1,9 @@
 import { pad } from "./helpers.js";
 import { DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS } from "./categories.js";
 
+// Entry shape: { id, type: "income"|"expense", category, amount, description, date, savingsGoalId? }
+// When savingsGoalId is set: type is "expense", category is the fixed "Sparziele" bucket,
+// and the entry also increments the referenced savings goal's `saved` amount.
 export const emptyData = () => ({
   entries: [], recurring: [],
   categories: { income: [], expense: [] },

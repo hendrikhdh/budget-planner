@@ -127,13 +127,17 @@ export function HomePage({
           </SwipeToDelete>
         ))}
       {/* FAB – Neuer Eintrag */}
-      <button onClick={openNewEntry} style={{
-        position: "fixed", bottom: 24, right: 24, width: 56, height: 56,
+      <button onClick={openNewEntry} aria-label="Neuer Eintrag" style={{
+        position: "fixed",
+        bottom: "calc(88px + env(safe-area-inset-bottom))",
+        right: "calc(20px + env(safe-area-inset-right))",
+        width: 60, height: 60,
         borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
         border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff"
+        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff",
+        WebkitTapHighlightColor: "transparent"
       }}>
-        <Icon name="plus" size={24}/>
+        <Icon name="plus" size={26}/>
       </button>
     </div>
   );

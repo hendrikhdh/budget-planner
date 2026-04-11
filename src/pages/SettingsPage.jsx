@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Icon } from "../components/Icon.jsx";
 
-export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syncStatus }) {
+export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syncStatus, userInfo, onLogout }) {
   const { btnPrimary, glassCardStyle } = styles;
   const settings = data.settings || {};
   const [reminderEnabled, setReminderEnabled] = useState(!!settings.reminderEnabled);
@@ -48,14 +48,21 @@ export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syn
 
   return (
     <div style={{ padding: "0 16px 100px" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, marginTop: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 20, marginTop: 8, flexWrap: "wrap" }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: T.textPrimary }}>Einstellungen</div>
-        <span title={syncLabel} style={{
-          width: 9, height: 9, borderRadius: "50%", flexShrink: 0,
-          background: syncColor,
-          boxShadow: `0 0 6px ${syncColor}60`,
-          animation: syncStatus === "connecting" ? "neonPulse 1.5s ease-in-out infinite" : "none"
-        }}/>
+        <div style={{
+          display: "inline-flex", alignItems: "center", gap: 8,
+          padding: "8px 14px", minHeight: 36,
+          borderRadius: 999,
+          background: `${syncColor}14`, border: `1px solid ${syncColor}40`,
+        }}>
+          <span style={{
+            width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
+            background: syncColor, boxShadow: `0 0 8px ${syncColor}80`,
+            animation: syncStatus === "connecting" ? "neonPulse 1.5s ease-in-out infinite" : "none"
+          }}/>
+          <span style={{ fontSize: 12, fontWeight: 700, color: syncColor, letterSpacing: 0.2 }}>{syncLabel}</span>
+        </div>
       </div>
       <div style={{ ...glassCardStyle, padding: "20px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -118,7 +125,7 @@ export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syn
           {saved ? "✓ Gespeichert" : "Einstellungen speichern"}
         </button>
       </div>
-      <div style={{ ...glassCardStyle, padding: "16px 20px" }}>
+      <div style={{ ...glassCardStyle, padding: "16px 20px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
           <Icon name="info" size={16} color={T.textMuted}/>
           <div style={{ fontSize: 13, fontWeight: 600, color: T.textSecondary }}>Hinweis zur Erinnerung</div>
@@ -128,6 +135,43 @@ export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syn
           Für zuverlässige Hintergrund-Benachrichtigungen empfehlen wir, die App zum Home-Bildschirm hinzuzufügen (PWA).
         </div>
       </div>
+
+      {(userInfo || onLogout) && (
+        <div style={{ ...glassCardStyle, padding: "20px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+            <Icon name="info" size={18} color={T.accent}/>
+            <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary }}>Konto</div>
+          </div>
+          {userInfo && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+              {userInfo.photo && (
+                <img src={userInfo.photo} alt="" referrerPolicy="no-referrer" style={{ width: 44, height: 44, borderRadius: "50%", flexShrink: 0 }}/>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userInfo.name}</div>
+                <div style={{ fontSize: 12, color: T.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userInfo.email}</div>
+              </div>
+            </div>
+          )}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                width: "100%", minHeight: 44, padding: "12px 16px",
+                background: `${T.expense}14`, border: `1px solid ${T.expense}40`, borderRadius: 12,
+                color: T.expense, fontSize: 14, fontWeight: 700, cursor: "pointer",
+                transition: "background .15s",
+              }}
+            >
+              <svg viewBox="0 0 24 24" style={{ width: 18, height: 18, fill: "none", stroke: T.expense, strokeWidth: 2, strokeLinecap: "round", strokeLinejoin: "round" }}>
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+              Abmelden
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }

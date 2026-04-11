@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Icon } from "../components/Icon.jsx";
 import { Modal } from "../components/Modal.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
-import { catName, catEmoji } from "../utils/categories.js";
+import { ConfirmDialog } from "../components/layout/ConfirmDialog.jsx";
+import { catName, catEmoji, sortCategoriesByUsage } from "../utils/categories.js";
 import { uid, fmt, getToday } from "../utils/helpers.js";
 
 export function RecurringPage({ data, setData, T, styles }) {
@@ -12,7 +13,10 @@ export function RecurringPage({ data, setData, T, styles }) {
   const [pendingDelete, setPendingDelete] = useState(null);
   const emptyForm = { type: "expense", category: "", amount: "", description: "", startMonth: String(getToday().month), startYear: String(getToday().year), cycle: "1", endMonth: "", endYear: "", hasEnd: false };
   const [form, setForm] = useState(emptyForm);
-  const catsByType = (t) => t === "income" ? data.categories.income : data.categories.expense;
+  const catsByType = (t) => {
+    const base = t === "income" ? data.categories.income : data.categories.expense;
+    return sortCategoriesByUsage(base, data.entries, t);
+  };
 
   const openNew = () => { setEditId(null); setForm(emptyForm); setShowForm(true); };
   const openEdit = (r) => {
@@ -93,8 +97,8 @@ export function RecurringPage({ data, setData, T, styles }) {
           <button onClick={saveRecurring} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
         </div>
         {editId && (
-          <button onClick={() => { if (window.confirm("Diesen Eintrag wirklich löschen?")) { deleteRecurring(editId); closeForm(); } }} style={{
-            marginTop: 12, padding: "10px 18px", background: "none",
+          <button onClick={() => setPendingDelete({ id: editId })} style={{
+            marginTop: 12, padding: "12px 18px", minHeight: 44, background: "none",
             border: `1px solid ${T.expense}40`, borderRadius: 10,
             color: T.expense, fontSize: 13, fontWeight: 600, cursor: "pointer",
             width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8
@@ -105,23 +109,12 @@ export function RecurringPage({ data, setData, T, styles }) {
       </Modal>
 
       {pendingDelete && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(6px)" }}/>
-          <div style={{
-            position: "relative", width: "85%", maxWidth: 340,
-            background: T.modalBg, backdropFilter: T.glassBlur,
-            borderRadius: 20, padding: "28px 24px 20px", textAlign: "center",
-            border: `1px solid ${T.expense}30`, boxShadow: T.glassShadow, animation: "slideUp .3s ease"
-          }}>
-            <div style={{ fontSize: 32, marginBottom: 12 }}>🗑️</div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary, marginBottom: 8 }}>Eintrag löschen?</div>
-            <div style={{ fontSize: 13, color: T.textSecondary, marginBottom: 20, lineHeight: 1.5 }}>Dieser wiederkehrende Eintrag wird dauerhaft gelöscht.</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => { pendingDelete.reset(); setPendingDelete(null); }} style={{ flex: 1, padding: "11px", background: T.glassCard, border: `1px solid ${T.glassBorder}`, borderRadius: 12, color: T.textPrimary, fontSize: 14, fontWeight: 600, cursor: "pointer" }}>Abbrechen</button>
-              <button onClick={() => { deleteRecurring(pendingDelete.id); setPendingDelete(null); }} style={{ flex: 1, padding: "11px", background: `linear-gradient(135deg, ${T.expense}, #ff3333)`, border: "none", borderRadius: 12, color: "#fff", fontSize: 14, fontWeight: 700, cursor: "pointer" }}>Löschen</button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog T={T} styles={styles} danger
+          title="Eintrag löschen?"
+          text="Dieser wiederkehrende Eintrag wird dauerhaft gelöscht."
+          confirmLabel="Löschen"
+          onConfirm={() => { deleteRecurring(pendingDelete.id); setPendingDelete(null); }}
+          onCancel={() => { if (pendingDelete.reset) pendingDelete.reset(); setPendingDelete(null); }}/>
       )}
 
       {[...data.recurring].sort((a, b) => {
@@ -144,13 +137,17 @@ export function RecurringPage({ data, setData, T, styles }) {
           </SwipeToDelete>
         );
       })}
-      <button onClick={openNew} style={{
-        position: "fixed", bottom: 24, right: 24, width: 56, height: 56,
+      <button onClick={openNew} aria-label="Neuer wiederkehrender Eintrag" style={{
+        position: "fixed",
+        bottom: "calc(88px + env(safe-area-inset-bottom))",
+        right: "calc(20px + env(safe-area-inset-right))",
+        width: 60, height: 60,
         borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
         border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff"
+        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff",
+        WebkitTapHighlightColor: "transparent"
       }}>
-        <Icon name="plus" size={24}/>
+        <Icon name="plus" size={26}/>
       </button>
     </div>
   );
