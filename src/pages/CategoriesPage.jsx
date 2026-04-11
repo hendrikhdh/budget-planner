@@ -50,14 +50,31 @@ export function CategoriesPage({ data, setData, T, styles }) {
   const cats = (catType === "expense" ? data.categories.expense : data.categories.income)
     .filter(c => catName(c) !== "Nicht zugeordnet");
 
-  const ColorDots = ({ selected, onSelect, size = 18 }) => (
-    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-      {CAT_COLORS.map(c => (
-        <button key={c.hex} onClick={() => onSelect(c.hex)} style={{
-          width: size, height: size, borderRadius: "50%", background: c.hex, border: selected === c.hex ? `2px solid ${T.textPrimary}` : "2px solid transparent",
-          cursor: "pointer", padding: 0, boxShadow: selected === c.hex ? `0 0 8px ${c.hex}` : "none", transition: "all .15s"
-        }} title={c.name}/>
-      ))}
+  const ColorDots = ({ selected, onSelect, size = 26 }) => (
+    <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+      {CAT_COLORS.map(c => {
+        const isSelected = selected === c.hex;
+        return (
+          <button
+            key={c.hex}
+            onClick={() => onSelect(c.hex)}
+            title={c.name}
+            aria-label={c.name}
+            style={{
+              width: 44, height: 44, padding: 0, border: "none", background: "transparent",
+              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+              WebkitTapHighlightColor: "transparent",
+            }}
+          >
+            <span style={{
+              width: size, height: size, borderRadius: "50%", background: c.hex,
+              border: isSelected ? `2px solid ${T.textPrimary}` : "2px solid transparent",
+              boxShadow: isSelected ? `0 0 8px ${c.hex}` : "none",
+              display: "block", transition: "all .15s",
+            }}/>
+          </button>
+        );
+      })}
     </div>
   );
 
@@ -138,7 +155,7 @@ export function CategoriesPage({ data, setData, T, styles }) {
                     width: "100%", height: 36, border: `1px solid ${T.inputBorder}`, borderRadius: 10,
                     background: T.inputBg, cursor: "pointer", padding: 2, display: "block", marginBottom: 8
                   }}/>
-                  <ColorDots selected={editForm.color} onSelect={(hex) => setEditForm(f => ({ ...f, color: hex }))} size={22}/>
+                  <ColorDots selected={editForm.color} onSelect={(hex) => setEditForm(f => ({ ...f, color: hex }))} size={28}/>
                 </div>
                 <button onClick={saveEdit} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Speichern</button>
               </div>
@@ -146,13 +163,17 @@ export function CategoriesPage({ data, setData, T, styles }) {
           </SwipeToDelete>
         );
       })}
-      <button onClick={() => setShowAddForm(true)} style={{
-        position: "fixed", bottom: 24, right: 24, width: 56, height: 56,
+      <button onClick={() => setShowAddForm(true)} aria-label="Neue Kategorie" style={{
+        position: "fixed",
+        bottom: "calc(88px + env(safe-area-inset-bottom))",
+        right: "calc(20px + env(safe-area-inset-right))",
+        width: 60, height: 60,
         borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
         border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff"
+        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff",
+        WebkitTapHighlightColor: "transparent"
       }}>
-        <Icon name="plus" size={24}/>
+        <Icon name="plus" size={26}/>
       </button>
     </div>
   );

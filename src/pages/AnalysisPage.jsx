@@ -39,9 +39,9 @@ export function AnalysisPage({
       <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{tl}-Analyse</h2>
       <p style={{ color: T.textMuted, fontSize: 13, marginBottom: 16 }}>{monthName(viewMonth, viewYear)}</p>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-        <button onClick={prevMonth} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 12 }}>← Zurück</button>
-        <button onClick={nextMonth} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 12 }}>Weiter →</button>
-        <button onClick={goToday} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 12 }}>Heute</button>
+        <button onClick={prevMonth} aria-label="Vorheriger Monat" style={{ ...btnSecondary, minHeight: 44, padding: "0 16px", fontSize: 13, fontWeight: 600 }}>← Zurück</button>
+        <button onClick={nextMonth} aria-label="Nächster Monat" style={{ ...btnSecondary, minHeight: 44, padding: "0 16px", fontSize: 13, fontWeight: 600 }}>Weiter →</button>
+        <button onClick={goToday} style={{ ...btnSecondary, minHeight: 44, padding: "0 16px", fontSize: 13, fontWeight: 600 }}>Heute</button>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
         <div style={{ flex: "1 1 200px", display: "flex", justifyContent: "center" }}>

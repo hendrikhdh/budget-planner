@@ -39,6 +39,22 @@ export const catName = (c) => typeof c === "string" ? c : c.name;
 export const catEmoji = (c) => typeof c === "string" ? "" : (c.emoji || "");
 export const catColorVal = (c) => (typeof c === "string" ? CAT_COLORS[0].hex : c.color) || CAT_COLORS[0].hex;
 
+export const sortCategoriesByUsage = (cats, entries, type, days = 30) => {
+  const cutoff = Date.now() - days * 86400000;
+  const counts = {};
+  for (const e of entries || []) {
+    if (type && e.type !== type) continue;
+    if (new Date(e.date).getTime() < cutoff) continue;
+    counts[e.category] = (counts[e.category] || 0) + 1;
+  }
+  return [...cats].sort((a, b) => {
+    const ca = counts[catName(a)] || 0;
+    const cb = counts[catName(b)] || 0;
+    if (cb !== ca) return cb - ca;
+    return catName(a).localeCompare(catName(b));
+  });
+};
+
 export const groupByCategory = (entries) => {
   const g = {};
   entries.forEach(e => { g[e.category] = (g[e.category] || 0) + e.amount; });

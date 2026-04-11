@@ -26,12 +26,16 @@ export function YearlyPage({
 
   return (
     <div style={{ padding: "0 16px 100px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 8, flexWrap: "wrap" }}>
         <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, margin: 0 }}>Jahresübersicht {yr}</h2>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button onClick={() => setViewYear(y => y - 1)} style={{ ...btnSecondary, padding: "6px 10px" }}><Icon name="left" size={16}/></button>
-          <button onClick={() => setViewYear(getToday().year)} style={{ ...btnSecondary, padding: "6px 10px", fontSize: 11 }}>Aktuell</button>
-          <button onClick={() => setViewYear(y => y + 1)} style={{ ...btnSecondary, padding: "6px 10px" }}><Icon name="right" size={16}/></button>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button onClick={() => setViewYear(y => y - 1)} aria-label="Vorheriges Jahr" style={{ ...btnSecondary, minWidth: 44, minHeight: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon name="left" size={18}/>
+          </button>
+          <button onClick={() => setViewYear(getToday().year)} style={{ ...btnSecondary, minHeight: 44, padding: "0 14px", fontSize: 12, fontWeight: 700 }}>Aktuell</button>
+          <button onClick={() => setViewYear(y => y + 1)} aria-label="Nächstes Jahr" style={{ ...btnSecondary, minWidth: 44, minHeight: 44, padding: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <Icon name="right" size={18}/>
+          </button>
         </div>
       </div>
       <div style={{ display: "flex", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>

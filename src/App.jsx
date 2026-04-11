@@ -12,7 +12,7 @@ import { useFormStyles } from "./hooks/useFormStyles.js";
 
 import { EntryModal } from "./components/EntryModal.jsx";
 import { AppHeader } from "./components/layout/AppHeader.jsx";
-import { SideMenu } from "./components/layout/SideMenu.jsx";
+import { BottomNav, SubNav } from "./components/layout/BottomNav.jsx";
 import { LoginScreen } from "./components/layout/LoginScreen.jsx";
 import { LoadingScreen } from "./components/layout/LoadingScreen.jsx";
 import { BackgroundOrbs } from "./components/layout/BackgroundOrbs.jsx";
@@ -42,7 +42,6 @@ export default function BudgetPlanner() {
   const [viewMonth, setViewMonth] = useState(getToday().month);
   const [viewYear, setViewYear] = useState(getToday().year);
   const [page, setPage] = useState("home");
-  const [menuOpen, setMenuOpen] = useState(false);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
   const [editEntry, setEditEntry] = useState(null);
   const [importMsg, setImportMsg] = useState(null);
@@ -63,18 +62,42 @@ export default function BudgetPlanner() {
   const nextMonth = () => { if (viewMonth === 11) { setViewMonth(0); setViewYear(y => y + 1); } else setViewMonth(m => m + 1); };
   const goToday = () => { setViewMonth(getToday().month); setViewYear(getToday().year); };
 
+  const adjustSavingsGoals = (goals, oldEntry, newEntry) => {
+    if (!goals) return goals;
+    const oldGid = oldEntry && oldEntry.savingsGoalId;
+    const newGid = newEntry && newEntry.savingsGoalId;
+    if (!oldGid && !newGid) return goals;
+    const deltas = {};
+    if (oldGid) deltas[oldGid] = (deltas[oldGid] || 0) - (oldEntry.amount || 0);
+    if (newGid) deltas[newGid] = (deltas[newGid] || 0) + (newEntry.amount || 0);
+    return goals.map(g => deltas[g.id] ? { ...g, saved: Math.max(0, (g.saved || 0) + deltas[g.id]) } : g);
+  };
+
   const handleSaveEntry = (entry) => {
-    if (entry.id) setData(prev => ({ ...prev, entries: prev.entries.map(e => e.id === entry.id ? entry : e) }));
-    else setData(prev => ({ ...prev, entries: [...prev.entries, { ...entry, id: uid() }] }));
+    setData(prev => {
+      const isEdit = !!entry.id;
+      const oldEntry = isEdit ? prev.entries.find(e => e.id === entry.id) : null;
+      const newEntry = isEdit ? entry : { ...entry, id: uid() };
+      const entries = isEdit
+        ? prev.entries.map(e => e.id === entry.id ? newEntry : e)
+        : [...prev.entries, newEntry];
+      const savingsGoals = adjustSavingsGoals(prev.savingsGoals, oldEntry, newEntry);
+      return { ...prev, entries, savingsGoals };
+    });
     setNewEntryOpen(false); setEditEntry(null);
   };
   const handleDeleteEntry = (id) => {
-    setData(prev => ({ ...prev, entries: prev.entries.filter(e => e.id !== id) }));
+    setData(prev => {
+      const oldEntry = prev.entries.find(e => e.id === id);
+      const entries = prev.entries.filter(e => e.id !== id);
+      const savingsGoals = adjustSavingsGoals(prev.savingsGoals, oldEntry, null);
+      return { ...prev, entries, savingsGoals };
+    });
     setNewEntryOpen(false); setEditEntry(null);
   };
   const openEdit = (e) => { setEditEntry(e); setNewEntryOpen(true); };
   const openNewEntry = () => { setEditEntry(null); setNewEntryOpen(true); };
-  const navigate = (p) => { setPage(p); setMenuOpen(false); };
+  const navigate = (p) => { setPage(p); };
 
   const showImportMsg = useCallback((msg) => {
     if (importMsgTimer.current) clearTimeout(importMsgTimer.current);
@@ -90,18 +113,23 @@ export default function BudgetPlanner() {
     showImportMsg({ type: "success", title: "Daten gelöscht", text: "Alle Einträge, Kategorien, Sparziele und wiederkehrende Buchungen wurden gelöscht." });
   };
 
-  const emojiLookup = (categoryName, type) => {
+  const emojiLookup = (categoryName, type, entry) => {
+    if (entry && entry.savingsGoalId) {
+      const g = (data.savingsGoals || []).find(g => g.id === entry.savingsGoalId);
+      return (g && g.emoji) || "🎯";
+    }
     const cats = type === "income" ? data.categories.income : data.categories.expense;
     const found = cats.find(c => catName(c) === categoryName);
     return found ? catEmoji(found) : "";
   };
-  const colorLookup = (categoryName, type) => {
+  const colorLookup = (categoryName, type, entry) => {
+    if (entry && entry.savingsGoalId) return T.warning;
     const cats = type === "income" ? data.categories.income : data.categories.expense;
     const found = cats.find(c => catName(c) === categoryName);
     return found ? catColorVal(found) : CAT_COLORS[0].hex;
   };
 
-  const handleLogout = async () => { await logout(); setMenuOpen(false); };
+  const handleLogout = async () => { await logout(); };
 
   // ─── Routing ──────────────────────────────────────────────
   const renderPage = () => {
@@ -135,7 +163,7 @@ export default function BudgetPlanner() {
       case "recurring": return <RecurringPage key="recurring" data={data} setData={setData} T={T} styles={styles}/>;
       case "savings": return <SavingsPage key="savings" data={data} setData={setData} T={T} styles={styles}/>;
       case "prediction": return <PredictionPage key="prediction" data={data} T={T} styles={styles}/>;
-      case "settings": return <SettingsPage key="settings" data={data} setData={setData} T={T} styles={styles} theme={theme} toggleTheme={toggleTheme} syncStatus={syncStatus}/>;
+      case "settings": return <SettingsPage key="settings" data={data} setData={setData} T={T} styles={styles} theme={theme} toggleTheme={toggleTheme} syncStatus={syncStatus} userInfo={userInfo} onLogout={handleLogout}/>;
       default:
         return <HomePage data={data} T={T} styles={styles} isDark={isDark}
           viewMonth={viewMonth} viewYear={viewYear} prevMonth={prevMonth} nextMonth={nextMonth} goToday={goToday}
@@ -167,19 +195,22 @@ export default function BudgetPlanner() {
       <AppShellStyles T={T}/>
       <BackgroundOrbs isDark={isDark}/>
 
-      <AppHeader T={T} isDark={isDark}
-        onMenu={() => setMenuOpen(true)} onTitleClick={() => setPage("home")}/>
+      <AppHeader T={T} isDark={isDark} onTitleClick={() => setPage("home")}/>
 
-      {menuOpen && (
-        <SideMenu T={T} isDark={isDark} page={page} userInfo={userInfo}
-          onClose={() => setMenuOpen(false)} onNavigate={navigate} onLogout={handleLogout}/>
-      )}
+      <div style={{
+        paddingTop: 69,
+        paddingBottom: "calc(72px + env(safe-area-inset-bottom))",
+        position: "relative", zIndex: 1
+      }}>
+        <SubNav T={T} page={page} onNavigate={navigate}/>
+        {renderPage()}
+      </div>
 
-      <div style={{ paddingTop: 69, position: "relative", zIndex: 1 }}>{renderPage()}</div>
+      <BottomNav T={T} isDark={isDark} page={page} onNavigate={navigate}/>
 
       <EntryModal open={newEntryOpen} onClose={() => { setNewEntryOpen(false); setEditEntry(null); }}
         editEntry={editEntry} onSave={handleSaveEntry} onDelete={handleDeleteEntry}
-        categories={data.categories} viewMonth={viewMonth} viewYear={viewYear} T={T} styles={styles}/>
+        categories={data.categories} entries={data.entries} savingsGoals={data.savingsGoals} setPage={setPage} viewMonth={viewMonth} viewYear={viewYear} T={T} styles={styles}/>
 
       {importMsg && <ImportMessageDialog T={T} styles={styles} msg={importMsg} onClose={() => setImportMsg(null)}/>}
 
