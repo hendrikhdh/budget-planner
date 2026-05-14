@@ -12,6 +12,7 @@ export const NAV_TABS = [
     label: "Analyse",
     icon: "trendUp",
     pages: [
+      { id: "wealth", label: "Vermögen" },
       { id: "expense-analysis", label: "Ausgaben" },
       { id: "income-analysis", label: "Einnahmen" },
       { id: "yearly", label: "Jahr" },
