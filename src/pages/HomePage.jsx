@@ -1,5 +1,5 @@
 import { useMemo, useRef } from "react";
-import { fmt } from "../utils/helpers.js";
+import { fmt, computeMonthlyBalances } from "../utils/helpers.js";
 import { Icon } from "../components/Icon.jsx";
 import { MonthNav } from "../components/MonthNav.jsx";
 import { EntryItem } from "../components/EntryItem.jsx";
@@ -26,6 +26,13 @@ export function HomePage({
       if (dx > 0) prevMonth(); else nextMonth();
     }
   };
+
+  const grandTotal = useMemo(() => {
+    const monthsSum = computeMonthlyBalances(data ? data.entries : []).reduce((s, m) => s + m.balance, 0);
+    const assetsSum = ((data && data.assets) || []).reduce((s, a) => s + (Number(a.value) || 0), 0);
+    return monthsSum + assetsSum;
+  }, [data && data.entries, data && data.assets]);
+  const grandTotalColor = grandTotal < 0 ? T.expense : grandTotal === 0 ? T.textPrimary : T.income;
 
   const budgetWarnings = useMemo(() => {
     if (!data) return [];
@@ -64,6 +71,16 @@ export function HomePage({
             <div style={{ fontSize: 18, fontWeight: 700, color: T.textPrimary }}>{fmt(expense)}</div>
           </div>
         </div>
+      </div>
+      {/* Gesamtsaldo */}
+      <div style={{ ...glassCardStyle, padding: "14px 16px", marginBottom: 16 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, display: "flex", alignItems: "center", gap: 8 }}>
+            <Icon name="wallet" size={16} color={T.accent}/> Gesamtsaldo
+          </div>
+          <button onClick={() => setPage("wealth")} style={{ background: "none", border: "none", color: T.accent, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Verwalten →</button>
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: grandTotalColor, lineHeight: 1.1 }}>{fmt(grandTotal)}</div>
       </div>
       {/* Savings Goals */}
       <div style={{ ...glassCardStyle, padding: "16px 20px", marginBottom: 16 }}>

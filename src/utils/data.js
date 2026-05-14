@@ -4,11 +4,15 @@ import { DEFAULT_INCOME_CATS, DEFAULT_EXPENSE_CATS } from "./categories.js";
 // Entry shape: { id, type: "income"|"expense", category, amount, description, date, savingsGoalId? }
 // When savingsGoalId is set: type is "expense", category is the fixed "Sparziele" bucket,
 // and the entry also increments the referenced savings goal's `saved` amount.
+// Asset shape: { id, name, emoji, value, history: [{ date: "YYYY-MM-DD", value: number }] }
+// manually maintained net-worth items (stocks, savings accounts, cash). `history` is the source
+// of truth; `value` mirrors the latest chronological history entry. Legacy assets without
+// `history` are auto-promoted by assetHistory() in helpers.js.
 export const emptyData = () => ({
   entries: [], recurring: [],
   categories: { income: [], expense: [] },
   savingsGoals: [], appliedRecurring: {},
-  budgets: {}, settings: {}
+  budgets: {}, settings: {}, assets: []
 });
 
 export const defaultData = () => {

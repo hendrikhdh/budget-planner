@@ -30,6 +30,7 @@ import { PredictionPage } from "./pages/PredictionPage.jsx";
 import { BudgetPage } from "./pages/BudgetPage.jsx";
 import { SearchPage } from "./pages/SearchPage.jsx";
 import { SettingsPage } from "./pages/SettingsPage.jsx";
+import { WealthPage } from "./pages/WealthPage.jsx";
 
 export default function BudgetPlanner() {
   const { theme, toggleTheme, T, isDark } = useTheme();
@@ -164,6 +165,7 @@ export default function BudgetPlanner() {
       case "savings": return <SavingsPage key="savings" data={data} setData={setData} T={T} styles={styles}/>;
       case "prediction": return <PredictionPage key="prediction" data={data} T={T} styles={styles}/>;
       case "settings": return <SettingsPage key="settings" data={data} setData={setData} T={T} styles={styles} theme={theme} toggleTheme={toggleTheme} syncStatus={syncStatus} userInfo={userInfo} onLogout={handleLogout}/>;
+      case "wealth": return <WealthPage key="wealth" data={data} setData={setData} T={T} styles={styles}/>;
       default:
         return <HomePage data={data} T={T} styles={styles} isDark={isDark}
           viewMonth={viewMonth} viewYear={viewYear} prevMonth={prevMonth} nextMonth={nextMonth} goToday={goToday}
