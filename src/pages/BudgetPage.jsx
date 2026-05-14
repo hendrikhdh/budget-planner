@@ -85,7 +85,7 @@ export function BudgetPage({ data, setData, monthEntries, T, styles }) {
           {editCat && (() => { const found = expenseCats.find(c => catName(c) === editCat); return found ? `${catEmoji(found)} ${editCat}` : editCat; })()}
         </div>
         <label style={labelStyle}>Monatliches Limit (€)</label>
-        <input type="number" inputMode="decimal" value={editAmount} onChange={e => setEditAmount(e.target.value)} style={inputStyle} autoFocus/>
+        <input type="number" inputMode="decimal" value={editAmount} onChange={e => setEditAmount(e.target.value)} style={inputStyle}/>
         <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
           <button onClick={saveBudgetEdit} style={btnPrimary}>Speichern</button>
         </div>

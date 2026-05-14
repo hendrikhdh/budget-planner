@@ -12,10 +12,27 @@ export function CategoriesPage({ data, setData, T, styles }) {
   const [editIdx, setEditIdx] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", emoji: "", color: "" });
   const [showAddForm, setShowAddForm] = useState(false);
+  const [newScope, setNewScope] = useState("expense");
+
+  const openAddForm = () => {
+    setNewCat(""); setNewEmoji(""); setNewColor(CAT_COLORS[0].hex);
+    setNewScope(catType);
+    setShowAddForm(true);
+  };
 
   const addCat = () => {
     if (!newCat.trim()) return;
-    setData(prev => ({ ...prev, categories: { ...prev.categories, [catType]: [...prev.categories[catType], { name: newCat.trim(), emoji: newEmoji || "", color: newColor }] } }));
+    const item = { name: newCat.trim(), emoji: newEmoji || "", color: newColor };
+    setData(prev => {
+      const next = { ...prev.categories };
+      if (newScope === "both") {
+        next.income = [...prev.categories.income, item];
+        next.expense = [...prev.categories.expense, item];
+      } else {
+        next[newScope] = [...prev.categories[newScope], item];
+      }
+      return { ...prev, categories: next };
+    });
     setNewCat(""); setNewEmoji(""); setNewColor(CAT_COLORS[0].hex);
   };
   const removeCat = (type, idx) => {
@@ -86,18 +103,27 @@ export function CategoriesPage({ data, setData, T, styles }) {
         <button onClick={() => { setCatType("income"); setEditIdx(null); }} style={chipStyle(catType === "income")}>Einnahmen</button>
       </div>
       {showAddForm && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 400, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setShowAddForm(false)}>
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center",
+          paddingBottom: "calc(72px + env(safe-area-inset-bottom))"
+        }} onClick={() => setShowAddForm(false)}>
           <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(6px)" }}/>
           <div onClick={e => e.stopPropagation()} style={{
-            position: "relative", width: "100%", maxWidth: 520,
+            position: "relative", width: "calc(100% - 16px)", maxWidth: 520,
             background: T.modalBg, backdropFilter: T.glassBlur,
-            borderRadius: "20px 20px 0 0", padding: "24px 20px 40px",
+            borderRadius: 20, padding: "24px 20px 24px",
             border: `1px solid ${T.glassBorder}`, boxShadow: T.glassShadow, animation: "slideUp .3s ease"
           }}>
             <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary, marginBottom: 14 }}>Neue Kategorie</div>
+            <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 6 }}>Verfügbar für</div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+              <button onClick={() => setNewScope("expense")} style={chipStyle(newScope === "expense")}>Ausgabe</button>
+              <button onClick={() => setNewScope("income")} style={chipStyle(newScope === "income")}>Einnahme</button>
+              <button onClick={() => setNewScope("both")} style={chipStyle(newScope === "both")}>Beide</button>
+            </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <input value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder="😀" style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 20, padding: "6px" }}/>
-              <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addCat(); setShowAddForm(false); } }} placeholder="Neue Kategorie..." style={{ ...inputStyle, flex: 1 }} autoFocus/>
+              <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addCat(); setShowAddForm(false); } }} placeholder="Neue Kategorie..." style={{ ...inputStyle, flex: 1 }}/>
             </div>
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 8 }}>Farbe wählen</div>
@@ -146,7 +172,7 @@ export function CategoriesPage({ data, setData, T, styles }) {
                     <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>Name</div>
                     <input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
                       onKeyDown={e => e.key === "Enter" && saveEdit()}
-                      style={inputStyle} autoFocus/>
+                      style={inputStyle}/>
                   </div>
                 </div>
                 <div style={{ marginBottom: 12 }}>
@@ -163,7 +189,7 @@ export function CategoriesPage({ data, setData, T, styles }) {
           </SwipeToDelete>
         );
       })}
-      <button onClick={() => setShowAddForm(true)} aria-label="Neue Kategorie" style={{
+      <button onClick={openAddForm} aria-label="Neue Kategorie" style={{
         position: "fixed",
         bottom: "calc(88px + env(safe-area-inset-bottom))",
         right: "calc(20px + env(safe-area-inset-right))",

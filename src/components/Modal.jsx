@@ -3,12 +3,15 @@ import { Icon } from "./Icon.jsx";
 export const Modal = ({ open, onClose, title, children, T }) => {
   if (!open) return null;
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={onClose}>
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center",
+      paddingBottom: "calc(72px + env(safe-area-inset-bottom))"
+    }} onClick={onClose}>
       <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(8px)" }}/>
       <div onClick={e => e.stopPropagation()} style={{
-        position: "relative", width: "100%", maxWidth: 480, maxHeight: "85vh", background: T.modalBg,
+        position: "relative", width: "calc(100% - 16px)", maxWidth: 480, maxHeight: "80vh", background: T.modalBg,
         backdropFilter: T.glassBlur,
-        borderRadius: "20px 20px 0 0", padding: "20px 20px 32px", overflowY: "auto",
+        borderRadius: 20, padding: "20px 20px 24px", overflowY: "auto",
         border: `1px solid ${T.glassBorder}`, boxShadow: T.glassShadow,
         animation: "slideUp .3s ease"
       }}>

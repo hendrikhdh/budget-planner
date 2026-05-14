@@ -121,7 +121,7 @@ export function HomePage({
       <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>Letzte Einträge</div>
       {monthEntries.length === 0
         ? <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 24 }}>Keine Einträge in diesem Monat</div>
-        : [...monthEntries].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 10).map(e => (
+        : [...monthEntries].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5).map(e => (
           <SwipeToDelete key={e.id} onDelete={() => onDeleteEntry(e.id)} T={T} onSwipeActive={() => { entrySwipeActive.current = true; }}>
             <EntryItem e={e} onClick={() => openEdit(e)} emojiLookup={emojiLookup} colorLookup={colorLookup} T={T}/>
           </SwipeToDelete>
