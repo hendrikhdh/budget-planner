@@ -58,7 +58,7 @@ export function BottomNav({ T, isDark, page, onNavigate }) {
       width: "100%", maxWidth: 520, zIndex: 100,
       background: T.headerBg, backdropFilter: T.glassBlur,
       borderTop: `1px solid ${T.headerBorder}`,
-      paddingBottom: "env(safe-area-inset-bottom)",
+      paddingBottom: "calc(env(safe-area-inset-bottom) + 8px)",
       boxShadow: isDark ? "0 -4px 24px rgba(0,0,0,0.4)" : "0 -4px 20px rgba(100,80,160,0.06)",
       display: "flex",
     }}>

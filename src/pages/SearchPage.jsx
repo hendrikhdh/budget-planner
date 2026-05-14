@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { EntryItem } from "../components/EntryItem.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
 import { catName, sortCategoriesByUsage } from "../utils/categories.js";
@@ -13,10 +13,23 @@ export function SearchPage({ data, openEdit, onDeleteEntry, emojiLookup, colorLo
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [showFilters, setShowFilters] = useState(false);
+  const dateToRef = useRef(null);
 
-  const allCats = [...(data.categories.income || []), ...(data.categories.expense || [])];
-  const sortedAllCats = sortCategoriesByUsage(allCats, data.entries, null);
-  const uniqueCats = [...new Set(sortedAllCats.map(c => catName(c)))];
+  const uniqueCats = useMemo(() => {
+    const income = data.categories.income || [];
+    const expense = data.categories.expense || [];
+    const pool =
+      filterType === "income" ? income :
+      filterType === "expense" ? expense :
+      [...income, ...expense];
+    const sortType = filterType === "all" ? null : filterType;
+    const sorted = sortCategoriesByUsage(pool, data.entries, sortType);
+    return [...new Set(sorted.map(c => catName(c)))];
+  }, [filterType, data.categories, data.entries]);
+
+  useEffect(() => {
+    if (filterCat && !uniqueCats.includes(filterCat)) setFilterCat("");
+  }, [filterCat, uniqueCats]);
 
   const results = useMemo(() => {
     let filtered = data.entries;
@@ -55,14 +68,28 @@ export function SearchPage({ data, openEdit, onDeleteEntry, emojiLookup, colorLo
       </div>
       {showFilters && (
         <div style={{ ...glassCardStyle, padding: 12, marginBottom: 12 }}>
-          <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-            <div style={{ flex: 1 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>Von</div>
-              <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12 }}/>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={e => {
+                  setDateFrom(e.target.value);
+                  if (e.target.value) requestAnimationFrame(() => dateToRef.current?.showPicker?.());
+                }}
+                style={{ ...inputStyle, padding: "6px 6px", fontSize: 11, width: "100%", boxSizing: "border-box" }}
+              />
             </div>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 4 }}>Bis</div>
-              <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...inputStyle, padding: "6px 10px", fontSize: 12 }}/>
+              <input
+                ref={dateToRef}
+                type="date"
+                value={dateTo}
+                onChange={e => setDateTo(e.target.value)}
+                style={{ ...inputStyle, padding: "6px 6px", fontSize: 11, width: "100%", boxSizing: "border-box" }}
+              />
             </div>
           </div>
           <div style={{ marginBottom: 8 }}>
