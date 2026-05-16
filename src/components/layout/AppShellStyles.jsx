@@ -15,6 +15,8 @@ export function AppShellStyles({ T }) {
       @keyframes floatOrb2 { 0%, 100% { transform: translate(0, 0) scale(1); } 33% { transform: translate(-50px, 20px) scale(0.9); } 66% { transform: translate(30px, -40px) scale(1.08); } }
       @keyframes floatOrb3 { 0%, 100% { transform: translate(0, 0) scale(1); } 50% { transform: translate(25px, 35px) scale(1.05); } }
       @keyframes importCountdown { from { width: 100%; } to { width: 0%; } }
+      @keyframes moneyRain { 0% { transform: translateY(-15vh) rotate(0deg); opacity: 0; } 10% { opacity: 1; } 100% { transform: translateY(115vh) rotate(360deg); opacity: 1; } }
+      @keyframes brandGlow { 0% { filter: brightness(1) drop-shadow(0 0 0 transparent); transform: scale(1); } 40% { filter: brightness(1.4) drop-shadow(0 0 14px gold); transform: scale(1.08); } 100% { filter: brightness(1) drop-shadow(0 0 0 transparent); transform: scale(1); } }
     `}</style>
   );
 }

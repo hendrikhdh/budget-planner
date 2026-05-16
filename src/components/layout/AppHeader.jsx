@@ -1,4 +1,8 @@
-export function AppHeader({ T, isDark, onTitleClick }) {
+export function AppHeader({ T, isDark, onTitleClick, pulseId = 0 }) {
+  const pulsing = pulseId > 0;
+  const animation = pulsing
+    ? (isDark ? "brandGlow 1.5s ease-out, neonPulse 3s ease-in-out infinite" : "brandGlow 1.5s ease-out")
+    : (isDark ? "neonPulse 3s ease-in-out infinite" : undefined);
   return (
     <div style={{
       display: "flex", justifyContent: "center", alignItems: "center", padding: "14px 16px",
@@ -9,10 +13,10 @@ export function AppHeader({ T, isDark, onTitleClick }) {
       paddingTop: "calc(14px + env(safe-area-inset-top))",
       boxShadow: isDark ? "none" : "0 4px 20px rgba(100,80,160,0.06)"
     }}>
-      <span onClick={onTitleClick} style={{
+      <span key={pulseId} onClick={onTitleClick} style={{
         fontSize: 20, fontWeight: 800, letterSpacing: 1.5, cursor: "pointer",
         display: "flex", alignItems: "center", gap: 6,
-        ...(isDark ? { animation: "neonPulse 3s ease-in-out infinite" } : {})
+        ...(animation ? { animation } : {})
       }}>
         <img src={`${import.meta.env.BASE_URL}icons/icon-180x180.png`} alt="" style={{ width: 28, height: 28, borderRadius: 6, objectFit: "contain", flexShrink: 0 }}/>
         <span style={{ color: T.titleGlow1, textShadow: T.titleShadow1 }}>Money</span>{" "}

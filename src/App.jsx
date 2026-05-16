@@ -11,6 +11,7 @@ import { useApplyRecurring } from "./hooks/useApplyRecurring.js";
 import { useFormStyles } from "./hooks/useFormStyles.js";
 
 import { EntryModal } from "./components/EntryModal.jsx";
+import { MoneyRain } from "./components/effects/MoneyRain.jsx";
 import { AppHeader } from "./components/layout/AppHeader.jsx";
 import { BottomNav, SubNav } from "./components/layout/BottomNav.jsx";
 import { LoginScreen } from "./components/layout/LoginScreen.jsx";
@@ -47,6 +48,7 @@ export default function BudgetPlanner() {
   const [editEntry, setEditEntry] = useState(null);
   const [importMsg, setImportMsg] = useState(null);
   const [confirmReset, setConfirmReset] = useState(false);
+  const [rainKey, setRainKey] = useState(0);
   const importMsgTimer = useRef(null);
 
   const balanceColor = useCallback((val) => val < 0 ? T.expense : val <= 500 ? T.warning : T.income, [T]);
@@ -75,6 +77,7 @@ export default function BudgetPlanner() {
   };
 
   const handleSaveEntry = (entry) => {
+    const isNewIncome = !entry.id && entry.type === "income" && !entry.savingsGoalId;
     setData(prev => {
       const isEdit = !!entry.id;
       const oldEntry = isEdit ? prev.entries.find(e => e.id === entry.id) : null;
@@ -86,6 +89,7 @@ export default function BudgetPlanner() {
       return { ...prev, entries, savingsGoals };
     });
     setNewEntryOpen(false); setEditEntry(null);
+    if (isNewIncome) setRainKey(k => k + 1);
   };
   const handleDeleteEntry = (id) => {
     setData(prev => {
@@ -197,7 +201,7 @@ export default function BudgetPlanner() {
       <AppShellStyles T={T}/>
       <BackgroundOrbs isDark={isDark}/>
 
-      <AppHeader T={T} isDark={isDark} onTitleClick={() => setPage("home")}/>
+      <AppHeader T={T} isDark={isDark} onTitleClick={() => setPage("home")} pulseId={rainKey}/>
 
       <div style={{
         paddingTop: 69,
@@ -209,6 +213,8 @@ export default function BudgetPlanner() {
       </div>
 
       <BottomNav T={T} isDark={isDark} page={page} onNavigate={navigate}/>
+
+      <MoneyRain triggerId={rainKey}/>
 
       <EntryModal open={newEntryOpen} onClose={() => { setNewEntryOpen(false); setEditEntry(null); }}
         editEntry={editEntry} onSave={handleSaveEntry} onDelete={handleDeleteEntry}
