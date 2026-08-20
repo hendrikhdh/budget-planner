@@ -1,106 +1,146 @@
 import { useState } from "react";
 import { Icon } from "../components/Icon.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
-import { CAT_COLORS, catName, catEmoji, catColorVal } from "../utils/categories.js";
+import { ConfirmDialog } from "../components/layout/ConfirmDialog.jsx";
+import {
+  CAT_COLORS, catName, catEmoji, catColorVal,
+  UNASSIGNED, renameCategory, removeCategory, countCategoryUsage,
+} from "../utils/categories.js";
+
+// Must live outside CategoriesPage: as an inner component React creates a new
+// type on every render, remounts the subtree and the color picker loses its state.
+const ColorDots = ({ selected, onSelect, T, size = 26 }) => (
+  <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+    {CAT_COLORS.map(c => {
+      const isSelected = selected === c.hex;
+      return (
+        <button
+          key={c.hex}
+          onClick={() => onSelect(c.hex)}
+          title={c.name}
+          aria-label={c.name}
+          style={{
+            width: 44, height: 44, padding: 0, border: "none", background: "transparent",
+            cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          <span style={{
+            width: size, height: size, borderRadius: "50%", background: c.hex,
+            border: isSelected ? `2px solid ${T.textPrimary}` : "2px solid transparent",
+            boxShadow: isSelected ? `0 0 8px ${c.hex}` : "none",
+            display: "block", transition: "all .15s",
+          }}/>
+        </button>
+      );
+    })}
+  </div>
+);
 
 export function CategoriesPage({ data, setData, T, styles }) {
-  const { inputStyle, selectStyle, labelStyle, btnPrimary, btnSecondary, chipStyle, glassCardStyle } = styles;
+  const { inputStyle, btnPrimary, chipStyle, glassCardStyle } = styles;
   const [newCat, setNewCat] = useState("");
   const [newEmoji, setNewEmoji] = useState("");
   const [newColor, setNewColor] = useState(CAT_COLORS[0].hex);
   const [catType, setCatType] = useState("expense");
-  const [editIdx, setEditIdx] = useState(null);
+  // Kategorien werden über ihren NAMEN identifiziert, nicht über den Index:
+  // die angezeigte Liste ist gefiltert, der Index passte deshalb nicht zum
+  // gespeicherten Array — und dieselbe Namensreferenz benutzen auch entries,
+  // recurring und budgets.
+  const [editName, setEditName] = useState(null);
   const [editForm, setEditForm] = useState({ name: "", emoji: "", color: "" });
   const [showAddForm, setShowAddForm] = useState(false);
   const [newScope, setNewScope] = useState("expense");
+  const [addError, setAddError] = useState(null);
+  const [editError, setEditError] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
   const openAddForm = () => {
     setNewCat(""); setNewEmoji(""); setNewColor(CAT_COLORS[0].hex);
     setNewScope(catType);
+    setAddError(null);
     setShowAddForm(true);
   };
 
+  const existsInScope = (scope, name) =>
+    (data.categories[scope] || []).some(c => catName(c).toLowerCase() === name.toLowerCase());
+
+  // Gibt true zurück, wenn gespeichert wurde — nur dann schließt der Aufrufer
+  // den Dialog.
   const addCat = () => {
-    if (!newCat.trim()) return;
-    const item = { name: newCat.trim(), emoji: newEmoji || "", color: newColor };
+    const name = newCat.trim();
+    if (!name) { setAddError("Bitte einen Namen eingeben."); return false; }
+    if (name.toLowerCase() === UNASSIGNED.toLowerCase()) {
+      setAddError(`„${UNASSIGNED}" ist für Einträge ohne Kategorie reserviert.`);
+      return false;
+    }
+    const scopes = newScope === "both" ? ["income", "expense"] : [newScope];
+    const clash = scopes.find(scope => existsInScope(scope, name));
+    if (clash) {
+      setAddError(`„${name}" gibt es bei ${clash === "income" ? "Einnahmen" : "Ausgaben"} bereits.`);
+      return false;
+    }
+    const item = { name, emoji: newEmoji || "", color: newColor };
     setData(prev => {
       const next = { ...prev.categories };
-      if (newScope === "both") {
-        next.income = [...prev.categories.income, item];
-        next.expense = [...prev.categories.expense, item];
-      } else {
-        next[newScope] = [...prev.categories[newScope], item];
-      }
+      scopes.forEach(scope => { next[scope] = [...(prev.categories[scope] || []), item]; });
       return { ...prev, categories: next };
     });
-    setNewCat(""); setNewEmoji(""); setNewColor(CAT_COLORS[0].hex);
-  };
-  const removeCat = (type, idx) => {
-    const deletedName = catName(cats[idx]);
-    setData(prev => ({
-      ...prev,
-      categories: { ...prev.categories, [type]: prev.categories[type].filter((_, i) => i !== idx) },
-      entries: prev.entries.map(e =>
-        e.type === type && e.category === deletedName ? { ...e, category: "Nicht zugeordnet" } : e
-      )
-    }));
-    if (editIdx === idx) setEditIdx(null);
+    setNewCat(""); setNewEmoji(""); setNewColor(CAT_COLORS[0].hex); setAddError(null);
+    return true;
   };
 
-  const openEdit = (i) => {
-    if (editIdx === i) { setEditIdx(null); return; }
-    const cat = cats[i];
-    setEditForm({ name: catName(cat), emoji: catEmoji(cat), color: catColorVal(cat) });
-    setEditIdx(i);
+  const removeCat = (type, name) => {
+    setData(prev => removeCategory(prev, type, name));
+    if (editName === name) setEditName(null);
+  };
+
+  const openEdit = (cat) => {
+    const name = catName(cat);
+    if (editName === name) { setEditName(null); return; }
+    setEditForm({ name, emoji: catEmoji(cat), color: catColorVal(cat) });
+    setEditError(null);
+    setEditName(name);
   };
 
   const saveEdit = () => {
-    if (editIdx === null || !editForm.name.trim()) return;
-    setData(prev => {
-      const updated = [...prev.categories[catType]];
-      updated[editIdx] = { name: editForm.name.trim(), emoji: editForm.emoji, color: editForm.color };
-      return { ...prev, categories: { ...prev.categories, [catType]: updated } };
-    });
-    setEditIdx(null);
+    if (editName === null) return;
+    const name = editForm.name.trim();
+    if (!name) { setEditError("Bitte einen Namen eingeben."); return; }
+    if (name.toLowerCase() === UNASSIGNED.toLowerCase()) {
+      setEditError(`„${UNASSIGNED}" ist für Einträge ohne Kategorie reserviert.`);
+      return;
+    }
+    if (name.toLowerCase() !== editName.toLowerCase() && existsInScope(catType, name)) {
+      setEditError(`„${name}" gibt es in dieser Liste bereits.`);
+      return;
+    }
+    // Umbenennen zieht Einträge, wiederkehrende Regeln und das Budget mit um.
+    setData(prev => renameCategory(prev, catType, editName, { name, emoji: editForm.emoji, color: editForm.color }));
+    setEditName(null); setEditError(null);
   };
 
   const cats = (catType === "expense" ? data.categories.expense : data.categories.income)
-    .filter(c => catName(c) !== "Nicht zugeordnet");
+    .filter(c => catName(c) !== UNASSIGNED);
 
-  const ColorDots = ({ selected, onSelect, size = 26 }) => (
-    <div style={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-      {CAT_COLORS.map(c => {
-        const isSelected = selected === c.hex;
-        return (
-          <button
-            key={c.hex}
-            onClick={() => onSelect(c.hex)}
-            title={c.name}
-            aria-label={c.name}
-            style={{
-              width: 44, height: 44, padding: 0, border: "none", background: "transparent",
-              cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-              WebkitTapHighlightColor: "transparent",
-            }}
-          >
-            <span style={{
-              width: size, height: size, borderRadius: "50%", background: c.hex,
-              border: isSelected ? `2px solid ${T.textPrimary}` : "2px solid transparent",
-              boxShadow: isSelected ? `0 0 8px ${c.hex}` : "none",
-              display: "block", transition: "all .15s",
-            }}/>
-          </button>
-        );
-      })}
-    </div>
-  );
+  const deleteUsage = pendingDelete ? countCategoryUsage(data, pendingDelete.type, pendingDelete.name) : null;
+  const deleteText = deleteUsage ? [
+    deleteUsage.entries > 0
+      ? `${deleteUsage.entries} ${deleteUsage.entries === 1 ? "Eintrag wird" : "Einträge werden"} auf „${UNASSIGNED}" verschoben.`
+      : null,
+    deleteUsage.recurring > 0
+      ? `${deleteUsage.recurring} wiederkehrende ${deleteUsage.recurring === 1 ? "Regel bucht" : "Regeln buchen"} danach auf „${UNASSIGNED}".`
+      : null,
+    deleteUsage.hasBudget ? "Das Monatsbudget dieser Kategorie wird gelöscht." : null,
+  ].filter(Boolean).join(" ") || "Diese Kategorie wird gelöscht." : "";
+  const errorStyle = { fontSize: 11, color: T.expense, marginTop: 6, marginBottom: 2, lineHeight: 1.5 };
 
   return (
     <div style={{ padding: "0 16px 100px" }}>
       <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 16 }}>Kategorien</h2>
       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-        <button onClick={() => { setCatType("expense"); setEditIdx(null); }} style={chipStyle(catType === "expense")}>Ausgaben</button>
-        <button onClick={() => { setCatType("income"); setEditIdx(null); }} style={chipStyle(catType === "income")}>Einnahmen</button>
+        <button onClick={() => { setCatType("expense"); setEditName(null); setEditError(null); }} style={chipStyle(catType === "expense")}>Ausgaben</button>
+        <button onClick={() => { setCatType("income"); setEditName(null); setEditError(null); }} style={chipStyle(catType === "income")}>Einnahmen</button>
       </div>
       {showAddForm && (
         <div style={{
@@ -123,7 +163,7 @@ export function CategoriesPage({ data, setData, T, styles }) {
             </div>
             <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
               <input value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder="😀" style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 20, padding: "6px" }}/>
-              <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addCat(); setShowAddForm(false); } }} placeholder="Neue Kategorie..." style={{ ...inputStyle, flex: 1 }}/>
+              <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && addCat()) setShowAddForm(false); }} placeholder="Neue Kategorie..." style={{ ...inputStyle, flex: 1 }}/>
             </div>
             <div style={{ marginBottom: 14 }}>
               <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 8 }}>Farbe wählen</div>
@@ -131,17 +171,18 @@ export function CategoriesPage({ data, setData, T, styles }) {
                 width: "100%", height: 40, border: `1px solid ${T.inputBorder}`, borderRadius: 10,
                 background: T.inputBg, cursor: "pointer", padding: 2, display: "block", marginBottom: 10
               }}/>
-              <ColorDots selected={newColor} onSelect={setNewColor}/>
+              <ColorDots selected={newColor} onSelect={setNewColor} T={T}/>
             </div>
-            <button onClick={() => { addCat(); setShowAddForm(false); }} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Hinzufügen</button>
+            {addError && <div style={errorStyle}>⚠ {addError}</div>}
+            <button onClick={() => { if (addCat()) setShowAddForm(false); }} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Hinzufügen</button>
           </div>
         </div>
       )}
       {cats.map((cat, i) => {
-        const isEditing = editIdx === i;
+        const isEditing = editName === catName(cat);
         return (
-          <SwipeToDelete key={catName(cat) + i} onDelete={() => removeCat(catType, i)} T={T} disabled={isEditing}>
-            <div onClick={() => openEdit(i)} style={{
+          <SwipeToDelete key={catName(cat) + i} onDelete={(reset) => setPendingDelete({ type: catType, name: catName(cat), reset })} T={T} disabled={isEditing}>
+            <div onClick={() => openEdit(cat)} style={{
               ...glassCardStyle, display: "flex", justifyContent: "space-between", alignItems: "center",
               padding: "12px 16px", cursor: "pointer",
               border: isEditing ? `1px solid ${T.accent}50` : glassCardStyle.border,
@@ -181,8 +222,9 @@ export function CategoriesPage({ data, setData, T, styles }) {
                     width: "100%", height: 36, border: `1px solid ${T.inputBorder}`, borderRadius: 10,
                     background: T.inputBg, cursor: "pointer", padding: 2, display: "block", marginBottom: 8
                   }}/>
-                  <ColorDots selected={editForm.color} onSelect={(hex) => setEditForm(f => ({ ...f, color: hex }))} size={28}/>
+                  <ColorDots selected={editForm.color} onSelect={(hex) => setEditForm(f => ({ ...f, color: hex }))} T={T} size={28}/>
                 </div>
+                {editError && <div style={errorStyle}>⚠ {editError}</div>}
                 <button onClick={saveEdit} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Speichern</button>
               </div>
             )}
@@ -201,6 +243,15 @@ export function CategoriesPage({ data, setData, T, styles }) {
       }}>
         <Icon name="plus" size={26}/>
       </button>
+
+      {pendingDelete && (
+        <ConfirmDialog T={T} styles={styles} danger
+          title={`„${pendingDelete.name}" löschen?`}
+          text={deleteText}
+          confirmLabel="Löschen"
+          onConfirm={() => { removeCat(pendingDelete.type, pendingDelete.name); setPendingDelete(null); }}
+          onCancel={() => { if (pendingDelete.reset) pendingDelete.reset(); setPendingDelete(null); }}/>
+      )}
     </div>
   );
 }

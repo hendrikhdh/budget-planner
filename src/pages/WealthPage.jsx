@@ -5,7 +5,7 @@ import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog.jsx";
 import { LineChart } from "../charts/LineChart.jsx";
 import {
-  uid, fmt, monthName, todayISO,
+  uid, fmt, monthName, todayISO, parseLocalDate,
   computeMonthlyBalances, computeTotalSeries, assetHistory
 } from "../utils/helpers.js";
 
@@ -33,7 +33,7 @@ export function WealthPage({ data, setData, T, styles }) {
     const map = {};
     for (const a of assets) {
       map[a.id] = assetHistory(a).map(h => {
-        const d = new Date(h.date);
+        const d = parseLocalDate(h.date);
         return { v: h.value, label: `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.` };
       });
     }

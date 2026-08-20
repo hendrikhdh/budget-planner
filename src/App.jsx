@@ -1,9 +1,10 @@
-import { useState, useMemo, useCallback, useRef } from "react";
-import { uid, getToday } from "./utils/helpers.js";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import { uid, getToday, parseLocalDate } from "./utils/helpers.js";
 import { CAT_COLORS, catName, catEmoji, catColorVal } from "./utils/categories.js";
 import { emptyData } from "./utils/data.js";
 
 import { useTheme } from "./hooks/useTheme.js";
+import { useHashRoute } from "./hooks/useHashRoute.js";
 import { useAuth } from "./hooks/useAuth.js";
 import { useFirestoreSync } from "./hooks/useFirestoreSync.js";
 import { useServiceWorker } from "./hooks/useServiceWorker.js";
@@ -12,8 +13,10 @@ import { useFormStyles } from "./hooks/useFormStyles.js";
 
 import { EntryModal } from "./components/EntryModal.jsx";
 import { MoneyRain } from "./components/effects/MoneyRain.jsx";
+import { UndoSnackbar } from "./components/UndoSnackbar.jsx";
 import { AppHeader } from "./components/layout/AppHeader.jsx";
-import { BottomNav, SubNav } from "./components/layout/BottomNav.jsx";
+import { SyncBanner } from "./components/layout/SyncBanner.jsx";
+import { BottomNav, SubNav, NAV_TABS } from "./components/layout/BottomNav.jsx";
 import { LoginScreen } from "./components/layout/LoginScreen.jsx";
 import { LoadingScreen } from "./components/layout/LoadingScreen.jsx";
 import { BackgroundOrbs } from "./components/layout/BackgroundOrbs.jsx";
@@ -33,6 +36,19 @@ import { SearchPage } from "./pages/SearchPage.jsx";
 import { SettingsPage } from "./pages/SettingsPage.jsx";
 import { WealthPage } from "./pages/WealthPage.jsx";
 
+// Modul-Ebene: stabile Referenz, sonst würde sich der Routing-Effekt bei
+// jedem Render neu anmelden.
+const PAGE_IDS = NAV_TABS.flatMap(tab => tab.pages.map(p => p.id));
+
+// Manifest-Shortcut "Neue Ausgabe" ruft #/home?new=1 auf. Der Wert wird einmal
+// beim Initialisieren gelesen — nicht per setState im Effekt, das wäre ein
+// zusätzlicher Renderdurchlauf.
+const wantsNewEntry = () => {
+  if (typeof window === "undefined") return false;
+  const query = window.location.hash.split("?")[1] || "";
+  return new URLSearchParams(query).get("new") === "1";
+};
+
 export default function BudgetPlanner() {
   const { theme, toggleTheme, T, isDark } = useTheme();
   const { userId, userInfo, authReady, loginError, login, logout } = useAuth();
@@ -43,18 +59,20 @@ export default function BudgetPlanner() {
 
   const [viewMonth, setViewMonth] = useState(getToday().month);
   const [viewYear, setViewYear] = useState(getToday().year);
-  const [page, setPage] = useState("home");
-  const [newEntryOpen, setNewEntryOpen] = useState(false);
+  const [page, setPage] = useHashRoute(PAGE_IDS, "home");
+  const [newEntryOpen, setNewEntryOpen] = useState(wantsNewEntry);
   const [editEntry, setEditEntry] = useState(null);
   const [importMsg, setImportMsg] = useState(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [rainKey, setRainKey] = useState(0);
+  const [undoEntry, setUndoEntry] = useState(null);
   const importMsgTimer = useRef(null);
+  const undoToken = useRef(0);
 
   const balanceColor = useCallback((val) => val < 0 ? T.expense : val <= 500 ? T.warning : T.income, [T]);
 
   const monthEntries = useMemo(
-    () => data ? data.entries.filter(e => { const d = new Date(e.date); return d.getMonth() === viewMonth && d.getFullYear() === viewYear; }) : [],
+    () => data ? data.entries.filter(e => { const d = parseLocalDate(e.date); return d.getMonth() === viewMonth && d.getFullYear() === viewYear; }) : [],
     [data && data.entries, viewMonth, viewYear]
   );
   const income = useMemo(() => monthEntries.filter(e => e.type === "income").reduce((s, e) => s + e.amount, 0), [monthEntries]);
@@ -92,6 +110,10 @@ export default function BudgetPlanner() {
     if (isNewIncome) setRainKey(k => k + 1);
   };
   const handleDeleteEntry = (id) => {
+    // Position und Eintrag werden aus dem aktuellen State gelesen, nicht im
+    // Updater — der läuft im StrictMode doppelt und darf keine Seiteneffekte haben.
+    const index = data ? data.entries.findIndex(e => e.id === id) : -1;
+    const removed = index >= 0 ? data.entries[index] : null;
     setData(prev => {
       const oldEntry = prev.entries.find(e => e.id === id);
       const entries = prev.entries.filter(e => e.id !== id);
@@ -99,10 +121,41 @@ export default function BudgetPlanner() {
       return { ...prev, entries, savingsGoals };
     });
     setNewEntryOpen(false); setEditEntry(null);
+    if (removed) {
+      undoToken.current += 1;
+      setUndoEntry({ token: undoToken.current, entry: removed, index });
+    }
   };
+
+  // Setzt den Eintrag an seiner alten Position wieder ein und dreht die
+  // Sparziel-Buchung mit zurück.
+  const handleUndoDelete = () => {
+    if (!undoEntry) return;
+    const { entry, index } = undoEntry;
+    setData(prev => {
+      if (prev.entries.some(e => e.id === entry.id)) return prev;
+      const entries = [...prev.entries];
+      entries.splice(Math.min(index, entries.length), 0, entry);
+      return { ...prev, entries, savingsGoals: adjustSavingsGoals(prev.savingsGoals, null, entry) };
+    });
+    setUndoEntry(null);
+  };
+  const dismissUndo = useCallback(() => setUndoEntry(null), []);
   const openEdit = (e) => { setEditEntry(e); setNewEntryOpen(true); };
   const openNewEntry = () => { setEditEntry(null); setNewEntryOpen(true); };
   const navigate = (p) => { setPage(p); };
+
+  // Alle Seiten teilen denselben Dokument-Scrollcontainer. Ohne Reset landet
+  // man beim Seitenwechsel mitten in der neuen Seite statt an ihrem Anfang.
+  useEffect(() => { window.scrollTo(0, 0); }, [page]);
+
+  // Shortcut-Parameter aus der URL entfernen, damit ein Reload nicht erneut
+  // das Eingabeformular öffnet.
+  useEffect(() => {
+    if (!window.location.hash.includes("?")) return;
+    const cleaned = window.location.hash.split("?")[0];
+    window.history.replaceState(null, "", window.location.pathname + cleaned);
+  }, []);
 
   const showImportMsg = useCallback((msg) => {
     if (importMsgTimer.current) clearTimeout(importMsgTimer.current);
@@ -201,13 +254,15 @@ export default function BudgetPlanner() {
       <AppShellStyles T={T}/>
       <BackgroundOrbs isDark={isDark}/>
 
-      <AppHeader T={T} isDark={isDark} onTitleClick={() => setPage("home")} pulseId={rainKey}/>
+      <AppHeader T={T} isDark={isDark} onTitleClick={() => setPage("home")} pulseId={rainKey}
+        syncStatus={syncStatus} onStatusClick={() => setPage("settings")}/>
 
       <div style={{
         paddingTop: 69,
         paddingBottom: "calc(72px + env(safe-area-inset-bottom))",
         position: "relative", zIndex: 1
       }}>
+        <SyncBanner T={T} syncStatus={syncStatus}/>
         <SubNav T={T} page={page} onNavigate={navigate}/>
         {renderPage()}
       </div>
@@ -215,6 +270,10 @@ export default function BudgetPlanner() {
       <BottomNav T={T} isDark={isDark} page={page} onNavigate={navigate}/>
 
       <MoneyRain triggerId={rainKey}/>
+
+      <UndoSnackbar T={T} token={undoEntry && undoEntry.token}
+        message={undoEntry ? `${undoEntry.entry.description || undoEntry.entry.category || "Eintrag"} gelöscht` : ""}
+        onUndo={handleUndoDelete} onDismiss={dismissUndo}/>
 
       <EntryModal open={newEntryOpen} onClose={() => { setNewEntryOpen(false); setEditEntry(null); }}
         editEntry={editEntry} onSave={handleSaveEntry} onDelete={handleDeleteEntry}

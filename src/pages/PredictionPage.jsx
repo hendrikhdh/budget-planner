@@ -1,36 +1,84 @@
 import { useState, useMemo } from "react";
 import { Icon } from "../components/Icon.jsx";
-import { fmt, fmtShort, getToday } from "../utils/helpers.js";
+import { fmt, fmtShort, getToday, parseLocalDate } from "../utils/helpers.js";
 import {
   weightedMovingAvg, holtSmoothing, linearRegression,
   seasonalForecast, ensembleForecast, variance
 } from "../utils/prediction.js";
 
+// Mehr Historie stabilisiert den Trend nicht, sie verzerrt ihn — und ein
+// Datumstippfehler von 1900 würde sonst über tausend Stützstellen erzeugen.
+const MAX_HISTORY_MONTHS = 36;
+
 export function PredictionPage({ data, T, styles }) {
-  const { glassCardStyle, btnSecondary, chipStyle } = styles;
+  const { glassCardStyle } = styles;
   const [showMethod, setShowMethod] = useState(null);
 
   const monthlyData = useMemo(() => {
     const map = {};
     data.entries.forEach(e => {
-      const d = new Date(e.date);
+      const d = parseLocalDate(e.date);
       const key = `${d.getFullYear()}-${d.getMonth()}`;
       if (!map[key]) map[key] = { year: d.getFullYear(), month: d.getMonth(), income: 0, expense: 0 };
       if (e.type === "income") map[key].income += e.amount;
       else map[key].expense += e.amount;
     });
-    return Object.values(map).sort((a, b) => a.year - b.year || a.month - b.month);
+    const list = Object.values(map).sort((a, b) => a.year - b.year || a.month - b.month);
+    if (list.length === 0) return [];
+
+    // Zwei Korrekturen gegenüber der reinen Gruppierung:
+    // 1. Der laufende Monat ist unvollständig. Als vollwertiger — im
+    //    gewichteten Mittel sogar höchstgewichteter — Historienpunkt zog er die
+    //    Prognose systematisch nach unten.
+    // 2. Monate ohne Einträge fehlten ganz. Regression und Holt lesen aber den
+    //    Array-Index als Monatsachse; jede Lücke überhöhte die Steigung.
+    const today = getToday();
+    const endTotal = today.year * 12 + today.month;          // exklusiv
+    const startTotal = Math.max(list[0].year * 12 + list[0].month, endTotal - MAX_HISTORY_MONTHS);
+    const result = [];
+    for (let t = startTotal; t < endTotal; t++) {
+      const year = Math.floor(t / 12), month = t % 12;
+      result.push(map[`${year}-${month}`] || { year, month, income: 0, expense: 0 });
+    }
+    return result;
   }, [data.entries]);
 
   const expenses = monthlyData.map(m => m.expense);
   const incomes = monthlyData.map(m => m.income);
 
-  const recurringExpense = data.recurring.filter(r => r.type === "expense").reduce((s, r) => s + r.amount, 0);
-  const recurringIncome = data.recurring.filter(r => r.type === "income").reduce((s, r) => s + r.amount, 0);
+  // Wiederkehrende Regeln laufen in verschiedenen Zyklen und können enden oder
+  // erst künftig starten. Alle Beträge ungeachtet dessen zu summieren, hat die
+  // feste Monatsbasis um ein Vielfaches überschätzt: ein Jahresbeitrag von
+  // 1.200 € zählte voll als Monatsbetrag statt mit 100 €.
+  const monthlyRecurring = (type) => {
+    const today = getToday();
+    const nowTotal = today.year * 12 + today.month;
+    return (data.recurring || []).reduce((sum, r) => {
+      if (r.type !== type) return sum;
+      const amount = parseFloat(r.amount);
+      const startYear = parseInt(r.startYear, 10), startMonth = parseInt(r.startMonth, 10);
+      if (!Number.isFinite(amount) || !Number.isInteger(startYear) || !Number.isInteger(startMonth)) return sum;
+      if (startYear * 12 + startMonth > nowTotal) return sum;
+      if (r.endYear != null && r.endYear !== "") {
+        const endTotal = parseInt(r.endYear, 10) * 12 + (parseInt(r.endMonth, 10) || 0);
+        if (Number.isFinite(endTotal) && endTotal < nowTotal) return sum;
+      }
+      return sum + amount / (parseInt(r.cycle, 10) || 1);
+    }, 0);
+  };
+  const recurringExpense = monthlyRecurring("expense");
+  const recurringIncome = monthlyRecurring("income");
 
   const HORIZON = 6;
   const expEnsemble = ensembleForecast(expenses, monthlyData, HORIZON);
   const incEnsemble = ensembleForecast(incomes, monthlyData.map(m => ({ ...m, expense: m.income })), HORIZON);
+
+  // Ehrlichkeitshinweise: zu wenig Historie, bzw. ein Modell, dessen Ergebnis
+  // nur durch Math.max(0, …) nicht negativ ist — beides sieht sonst wie eine
+  // belastbare Prognose aus.
+  const tooLittleHistory = monthlyData.length < 3;
+  const clampedToZero = !tooLittleHistory
+    && expEnsemble.every(v => v === 0) && expenses.some(v => v > 0);
 
   const expStd = variance(expenses);
   const incStd = variance(incomes);
@@ -78,7 +126,6 @@ export function PredictionPage({ data, T, styles }) {
         loCoords.slice().reverse().map((c, i) => `${i === 0 ? "L" : "L"} ${c.x} ${c.y}`).join(" ") + " Z"
       : "";
 
-    const gid = `fc-${color.replace("#", "")}-${Math.random().toString(36).slice(2, 6)}`;
 
     return (
       <div style={{ width: "100%" }}>
@@ -130,7 +177,7 @@ export function PredictionPage({ data, T, styles }) {
         <div style={{ ...glassCardStyle, padding: 24, textAlign: "center" }}>
           <div style={{ fontSize: 32, marginBottom: 10 }}>📊</div>
           <div style={{ color: T.textPrimary, fontSize: 15, fontWeight: 700, marginBottom: 6 }}>Zu wenig Daten</div>
-          <div style={{ color: T.textMuted, fontSize: 13, lineHeight: 1.5 }}>Mindestens 2 Monate mit Einträgen werden benötigt, um eine Prognose zu erstellen.</div>
+          <div style={{ color: T.textMuted, fontSize: 13, lineHeight: 1.5 }}>Es werden mindestens 2 abgeschlossene Monate mit Einträgen benötigt. Der laufende Monat zählt nicht mit, weil er unvollständig ist und die Prognose sonst nach unten ziehen würde.</div>
         </div>
       ) : (
         <>
@@ -207,6 +254,18 @@ export function PredictionPage({ data, T, styles }) {
               </div>
             </div>
           </div>
+
+          {(tooLittleHistory || clampedToZero) && (
+            <div style={{
+              padding: "10px 14px", marginBottom: 16, borderRadius: 12,
+              background: `${T.warning}14`, border: `1px solid ${T.warning}40`,
+              fontSize: 12, color: T.textSecondary, lineHeight: 1.5,
+            }}>
+              {tooLittleHistory
+                ? `Erst ${monthlyData.length} abgeschlossene ${monthlyData.length === 1 ? "Monat" : "Monate"} erfasst — die Prognose ist noch nicht belastbar. Der laufende Monat zählt bewusst nicht mit, weil er unvollständig ist.`
+                : "Der berechnete Trend läuft ins Negative und wird auf 0 € gekappt. Die Prognose ist damit nicht belastbar."}
+            </div>
+          )}
 
           <div style={{ ...glassCardStyle, padding: "16px 8px", marginBottom: 16 }}>
             <ForecastChart historical={expenses} forecast={expEnsemble} forecastHigh={expHigh} forecastLow={expLow} color={T.expense} label="Ausgaben-Prognose" />

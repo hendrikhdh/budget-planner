@@ -7,7 +7,7 @@ import { catName, catEmoji, sortCategoriesByUsage } from "../utils/categories.js
 import { fmt } from "../utils/helpers.js";
 
 export function BudgetPage({ data, setData, monthEntries, T, styles }) {
-  const { inputStyle, labelStyle, btnPrimary, btnSecondary, glassCardStyle, chipStyle, selectStyle } = styles;
+  const { inputStyle, labelStyle, btnPrimary, glassCardStyle, selectStyle } = styles;
   const [newCat, setNewCat] = useState("");
   const [newAmount, setNewAmount] = useState("");
   const [showForm, setShowForm] = useState(false);

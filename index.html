@@ -2,7 +2,10 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- Kein user-scalable=no: das sperrt Pinch-Zoom (WCAG 1.4.4). viewport-fit=cover
+         aktiviert die env(safe-area-inset-*)-Abstände, die Header, BottomNav und
+         Modals bereits verwenden. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta http-equiv="Content-Security-Policy" content="
       default-src 'self';
       script-src 'self' https://apis.google.com https://*.firebaseapp.com;
@@ -25,7 +28,8 @@
     <meta name="apple-mobile-web-app-title" content="Money Maker" />
     <link rel="apple-touch-icon" sizes="180x180" href="%BASE_URL%icons/icon-180x180.png" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="theme-color" content="#3b82f6" />
+    <!-- Startwert; useTheme.js setzt ihn beim Mount auf die Farbe des aktiven Themes. -->
+    <meta name="theme-color" content="#0d0d1a" />
     <title>Money Maker</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }

@@ -6,29 +6,74 @@ import { ConfirmDialog } from "../components/layout/ConfirmDialog.jsx";
 import { catName, catEmoji, sortCategoriesByUsage } from "../utils/categories.js";
 import { uid, fmt, getToday } from "../utils/helpers.js";
 
+// Frühestes plausibles Startjahr. Ohne Grenze erzeugte ein Tippfehler wie
+// "202" tausende Buchungen rückwirkend.
+const MIN_YEAR = 2000;
+
 export function RecurringPage({ data, setData, T, styles }) {
-  const { inputStyle, selectStyle, labelStyle, btnPrimary, btnSecondary, chipStyle, glassCardStyle } = styles;
+  const { inputStyle, selectStyle, labelStyle, btnPrimary, chipStyle, glassCardStyle } = styles;
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [pendingDelete, setPendingDelete] = useState(null);
   const emptyForm = { type: "expense", category: "", amount: "", description: "", startMonth: String(getToday().month), startYear: String(getToday().year), cycle: "1", endMonth: "", endYear: "", hasEnd: false };
   const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState({});
   const catsByType = (t) => {
     const base = t === "income" ? data.categories.income : data.categories.expense;
     return sortCategoriesByUsage(base, data.entries, t);
   };
 
-  const openNew = () => { setEditId(null); setForm(emptyForm); setShowForm(true); };
+  const openNew = () => { setEditId(null); setForm(emptyForm); setErrors({}); setShowForm(true); };
   const openEdit = (r) => {
     setEditId(r.id);
     setForm({ type: r.type, category: r.category, amount: String(r.amount), description: r.description, startMonth: String(r.startMonth), startYear: String(r.startYear), cycle: String(r.cycle), hasEnd: r.endYear != null, endMonth: r.endMonth != null ? String(r.endMonth) : "", endYear: r.endYear != null ? String(r.endYear) : "" });
+    setErrors({});
     setShowForm(true);
   };
-  const closeForm = () => { setShowForm(false); setEditId(null); setForm(emptyForm); };
+  const closeForm = () => { setShowForm(false); setEditId(null); setForm(emptyForm); setErrors({}); };
 
   const saveRecurring = () => {
-    if (!form.amount || !form.category) return;
-    const parsed = { ...form, amount: parseFloat(form.amount), startMonth: parseInt(form.startMonth), startYear: parseInt(form.startYear), cycle: parseInt(form.cycle), endMonth: form.hasEnd && form.endMonth !== "" ? parseInt(form.endMonth) : null, endYear: form.hasEnd && form.endYear !== "" ? parseInt(form.endYear) : null };
+    const errs = {};
+    if (!form.category) errs.category = "Bitte eine Kategorie auswählen.";
+    const amount = parseFloat(form.amount);
+    if (!form.amount || !Number.isFinite(amount) || amount <= 0) errs.amount = "Bitte einen Betrag größer als 0 eingeben.";
+    else if (amount > 1_000_000) errs.amount = "Betrag darf 1.000.000 € nicht überschreiten.";
+
+    const startYear = parseInt(form.startYear, 10);
+    const startMonth = parseInt(form.startMonth, 10);
+    const maxYear = getToday().year + 5;
+    if (!Number.isInteger(startYear) || startYear < MIN_YEAR || startYear > maxYear) {
+      errs.start = `Startjahr muss zwischen ${MIN_YEAR} und ${maxYear} liegen.`;
+    }
+
+    // Beide Endfelder gemeinsam: nur der Endmonat gesetzt hieß bisher "läuft
+    // ewig", nur das Endjahr gesetzt hieß "endet im Januar" — beides ungewollt.
+    let endYear = null, endMonth = null;
+    if (form.hasEnd) {
+      endYear = parseInt(form.endYear, 10);
+      endMonth = parseInt(form.endMonth, 10);
+      if (!Number.isInteger(endYear) || !Number.isInteger(endMonth)) {
+        errs.end = "Bitte Endmonat und Endjahr angeben.";
+      } else if (endYear > maxYear) {
+        errs.end = `Endjahr darf höchstens ${maxYear} sein.`;
+      } else if (Number.isInteger(startYear) && (endYear < startYear || (endYear === startYear && endMonth < startMonth))) {
+        errs.end = "Das Ende darf nicht vor dem Start liegen.";
+      }
+    }
+
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
+
+    const parsed = {
+      type: form.type,
+      category: form.category,
+      amount,
+      description: form.description,
+      startMonth, startYear,
+      cycle: parseInt(form.cycle, 10) || 1,
+      endMonth: form.hasEnd ? endMonth : null,
+      endYear: form.hasEnd ? endYear : null,
+    };
     if (editId) {
       setData(prev => ({ ...prev, recurring: prev.recurring.map(r => r.id === editId ? { ...r, ...parsed } : r) }));
     } else {
@@ -42,6 +87,7 @@ export function RecurringPage({ data, setData, T, styles }) {
     if (editId === id) closeForm();
   };
 
+  const errorStyle = { fontSize: 11, color: T.expense, marginTop: 4, lineHeight: 1.5 };
   const cycles = [{ v: "1", l: "Monatlich" }, { v: "2", l: "Alle 2 Monate" }, { v: "3", l: "Vierteljährlich" }, { v: "6", l: "Halbjährlich" }, { v: "12", l: "Jährlich" }];
   const months = Array.from({ length: 12 }, (_, i) => ({ v: String(i), l: new Date(2024, i).toLocaleString("de-DE", { month: "long" }) }));
 
@@ -60,8 +106,10 @@ export function RecurringPage({ data, setData, T, styles }) {
           <option value="">Wählen...</option>
           {catsByType(form.type).map(c => <option key={catName(c)} value={catName(c)}>{catEmoji(c)} {catName(c)}</option>)}
         </select>
+        {errors.category && <div style={errorStyle}>⚠ {errors.category}</div>}
         <label style={labelStyle}>Betrag (€)</label>
         <input type="number" inputMode="decimal" value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} style={inputStyle} placeholder="0.00"/>
+        {errors.amount && <div style={errorStyle}>⚠ {errors.amount}</div>}
         <label style={labelStyle}>Beschreibung</label>
         <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} style={inputStyle} placeholder="z.B. Netflix Abo"/>
         <div style={{ display: "flex", gap: 8 }}>
@@ -70,8 +118,10 @@ export function RecurringPage({ data, setData, T, styles }) {
               {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
             </select></div>
           <div style={{ flex: 1 }}><label style={labelStyle}>Startjahr</label>
-            <input type="number" value={form.startYear} onChange={e => setForm(f => ({ ...f, startYear: e.target.value }))} style={inputStyle}/></div>
+            <input type="number" inputMode="numeric" min={MIN_YEAR} max={getToday().year + 5}
+              value={form.startYear} onChange={e => setForm(f => ({ ...f, startYear: e.target.value }))} style={inputStyle}/></div>
         </div>
+        {errors.start && <div style={errorStyle}>⚠ {errors.start}</div>}
         <label style={labelStyle}>Zyklus</label>
         <select value={form.cycle} onChange={e => setForm(f => ({ ...f, cycle: e.target.value }))} style={selectStyle}>
           {cycles.map(c => <option key={c.v} value={c.v}>{c.l}</option>)}
@@ -90,9 +140,11 @@ export function RecurringPage({ data, setData, T, styles }) {
                 {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
               </select></div>
             <div style={{ flex: 1 }}><label style={labelStyle}>Endjahr</label>
-              <input type="number" value={form.endYear} onChange={e => setForm(f => ({ ...f, endYear: e.target.value }))} style={inputStyle} placeholder={String(getToday().year + 1)}/></div>
+              <input type="number" inputMode="numeric" min={MIN_YEAR} max={getToday().year + 5}
+                value={form.endYear} onChange={e => setForm(f => ({ ...f, endYear: e.target.value }))} style={inputStyle} placeholder={String(getToday().year + 1)}/></div>
           </div>
         )}
+        {errors.end && <div style={errorStyle}>⚠ {errors.end}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 20 }}>
           <button onClick={saveRecurring} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
         </div>

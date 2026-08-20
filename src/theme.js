@@ -15,7 +15,7 @@ export const themes = {
     cardHover: "rgba(255,255,255,0.06)",
     textPrimary: "#ffffff",
     textSecondary: "#aaaaaa",
-    textMuted: "#666666",
+    textMuted: "#8a8a8a",  // 5,36:1 auf #0d0d1a (vorher #666666 = 3,22:1)
     warning: "#ffd60a",
     headerBg: "rgba(13,13,26,0.95)",
     headerBorder: "rgba(255,255,255,0.06)",
@@ -62,8 +62,8 @@ export const themes = {
     cardHover: "rgba(255,255,255,0.65)",
     textPrimary: "#1e1b4b",
     textSecondary: "#4b5563",
-    textMuted: "#9ca3af",
-    warning: "#d97706",
+    textMuted: "#5b6472",  // 4,85:1 auf dem hellsten Verlauf (vorher #9ca3af = 2,06:1)
+    warning: "#9a5305",    // 4,72:1 als Text (vorher #d97706 = 2,59:1)
     headerBg: "rgba(255,255,255,0.55)",
     headerBorder: "rgba(255,255,255,0.75)",
     menuBg: "rgba(255,255,255,0.8)",

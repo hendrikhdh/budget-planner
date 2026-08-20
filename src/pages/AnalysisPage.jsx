@@ -1,4 +1,4 @@
-import { fmt, monthName } from "../utils/helpers.js";
+import { fmt, monthName, parseLocalDate } from "../utils/helpers.js";
 import { DonutChart } from "../charts/DonutChart.jsx";
 import { LineChart } from "../charts/LineChart.jsx";
 import { EntryItem } from "../components/EntryItem.jsx";
@@ -25,7 +25,7 @@ export function AnalysisPage({
     while (m < 0) { m += 12; y--; }
     lp.push({
       v: data.entries.filter(e => {
-        const d = new Date(e.date);
+        const d = parseLocalDate(e.date);
         return e.type === type && d.getMonth() === m && d.getFullYear() === y;
       }).reduce((s, e) => s + e.amount, 0),
       label: new Date(y, m).toLocaleString("de-DE", { month: "short" }),

@@ -78,7 +78,12 @@ export function HomePage({
           <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, display: "flex", alignItems: "center", gap: 8 }}>
             <Icon name="wallet" size={16} color={T.accent}/> Gesamtsaldo
           </div>
-          <button onClick={() => setPage("wealth")} style={{ background: "none", border: "none", color: T.accent, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Verwalten →</button>
+          <button onClick={() => setPage("wealth")} style={{
+            background: "none", border: "none", color: T.accent, fontSize: 12, cursor: "pointer", fontWeight: 600,
+            // 44px Trefferfläche; die negativen Ränder halten die Zeilenhöhe.
+            minHeight: 44, padding: "0 10px", margin: "-10px -10px -10px 0",
+            WebkitTapHighlightColor: "transparent",
+          }}>Verwalten →</button>
         </div>
         <div style={{ fontSize: 22, fontWeight: 800, color: grandTotalColor, lineHeight: 1.1 }}>{fmt(grandTotal)}</div>
       </div>
@@ -88,12 +93,17 @@ export function HomePage({
           <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, display: "flex", alignItems: "center", gap: 8 }}>
             <Icon name="target" size={16} color={T.warning}/> Sparziele
           </div>
-          <button onClick={() => setPage("savings")} style={{ background: "none", border: "none", color: T.accent, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Verwalten →</button>
+          <button onClick={() => setPage("savings")} style={{
+            background: "none", border: "none", color: T.accent, fontSize: 12, cursor: "pointer", fontWeight: 600,
+            // 44px Trefferfläche; die negativen Ränder halten die Zeilenhöhe.
+            minHeight: 44, padding: "0 10px", margin: "-10px -10px -10px 0",
+            WebkitTapHighlightColor: "transparent",
+          }}>Verwalten →</button>
         </div>
         {data.savingsGoals.length === 0
           ? <div style={{ color: T.textMuted, fontSize: 13, padding: "8px 0" }}>Noch keine Sparziele definiert</div>
           : data.savingsGoals.map(g => {
-            const pct = Math.min((g.saved / g.target) * 100, 100);
+            const pct = g.target > 0 ? Math.min((g.saved / g.target) * 100, 100) : 0;
             return (
               <div key={g.id} style={{ marginBottom: 10 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textSecondary, marginBottom: 4 }}>
@@ -114,7 +124,12 @@ export function HomePage({
             <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: 16 }}>⚠️</span> Budget-Warnungen
             </div>
-            <button onClick={() => setPage("budget")} style={{ background: "none", border: "none", color: T.accent, fontSize: 12, cursor: "pointer", fontWeight: 600 }}>Verwalten →</button>
+            <button onClick={() => setPage("budget")} style={{
+            background: "none", border: "none", color: T.accent, fontSize: 12, cursor: "pointer", fontWeight: 600,
+            // 44px Trefferfläche; die negativen Ränder halten die Zeilenhöhe.
+            minHeight: 44, padding: "0 10px", margin: "-10px -10px -10px 0",
+            WebkitTapHighlightColor: "transparent",
+          }}>Verwalten →</button>
           </div>
           {budgetWarnings.slice(0, 3).map(b => {
             const overBudget = b.remaining < 0;

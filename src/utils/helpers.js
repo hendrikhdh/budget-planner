@@ -1,12 +1,44 @@
 export const uid = () => crypto.randomUUID().replace(/-/g, "");
 export const fmt = (n) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
 export const fmtWhole = (n) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(n);
-export const fmtShort = (n) => n >= 1000 ? (n / 1000).toFixed(1).replace('.0', '') + 'k' : Math.round(n).toString();
+// Kurzform für Chart-Beschriftungen. Dezimaltrenner ist wie im übrigen UI
+// das Komma (de-DE) — toFixed liefert einen Punkt.
+export const fmtShort = (n) => n >= 1000 ? (n / 1000).toFixed(1).replace('.0', '').replace('.', ',') + 'k' : Math.round(n).toString();
 export const monthName = (m, y) => new Date(y, m).toLocaleString("de-DE", { month: "long", year: "numeric" });
 export const getToday = () => { const d = new Date(); return { month: d.getMonth(), year: d.getFullYear(), day: d.getDate() }; };
 export const pad = (n) => String(n).padStart(2, "0");
 export const dateStr = (y, m, d) => `${y}-${pad(m + 1)}-${pad(d)}`;
 export const todayISO = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+
+// "YYYY-MM-DD" liest JavaScript laut Spezifikation als UTC-Mitternacht, während
+// getMonth()/getDate() Lokalzeit liefern. Westlich von Greenwich rutscht dadurch
+// jedes Datum auf den Vortag — und weil wiederkehrende Buchungen auf dem 1.
+// liegen, kippen Miete und Gehalt geschlossen in den Vormonat. Diese Funktion
+// erzeugt Mitternacht in der LOKALEN Zeitzone.
+// Reine Sortiervergleiche brauchen sie nicht: dort verschieben sich beide
+// Seiten gleich, die Reihenfolge bleibt korrekt.
+export const parseLocalDate = (value) => {
+  if (typeof value === "string") {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  }
+  return new Date(value);
+};
+
+export const daysInMonth = (year, month) => new Date(year, month + 1, 0).getDate();
+
+// Klemmt einen Tag auf die Länge des Monats — den 31. Februar gibt es nicht.
+export const clampDay = (year, month, day) => Math.min(Math.max(day, 1), daysInMonth(year, month));
+
+// Prüft, ob der String ein real existierendes Datum bezeichnet: "2026-02-31"
+// erfüllt zwar das Format, rollt beim Parsen aber in den März.
+export const isValidDateStr = (value) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+  if (!m) return false;
+  const y = Number(m[1]), mo = Number(m[2]) - 1, d = Number(m[3]);
+  const dt = new Date(y, mo, d);
+  return dt.getFullYear() === y && dt.getMonth() === mo && dt.getDate() === d;
+};
 
 // Returns the chronologically sorted history of an asset. Legacy assets without a `history` field
 // get a synthetic single point with today's date and their current `value`.
@@ -51,7 +83,7 @@ export const computeTotalSeries = (assets, entries, monthsBack = 12) => {
 export const computeMonthlyBalances = (entries) => {
   const groups = new Map();
   for (const e of entries || []) {
-    const d = new Date(e.date);
+    const d = parseLocalDate(e.date);
     const y = d.getFullYear();
     const m = d.getMonth();
     const key = `${y}-${pad(m + 1)}`;

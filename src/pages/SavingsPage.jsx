@@ -4,16 +4,17 @@ import { Modal } from "../components/Modal.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog.jsx";
 import { LineChart } from "../charts/LineChart.jsx";
-import { uid, fmt } from "../utils/helpers.js";
+import { uid, fmt, parseLocalDate } from "../utils/helpers.js";
 
 export function SavingsPage({ data, setData, T, styles }) {
-  const { inputStyle, labelStyle, btnPrimary, btnSecondary, glassCardStyle } = styles;
+  const { inputStyle, labelStyle, btnPrimary, glassCardStyle } = styles;
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [showHistory, setShowHistory] = useState(false);
   const emptyForm = { name: "", target: "", saved: "0", emoji: "" };
   const [form, setForm] = useState(emptyForm);
+  const [errors, setErrors] = useState({});
 
   const historyByGoal = useMemo(() => {
     const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth() - 6); cutoff.setHours(0, 0, 0, 0);
@@ -21,8 +22,8 @@ export function SavingsPage({ data, setData, T, styles }) {
     const result = {};
     for (const g of data.savingsGoals || []) {
       const all = (data.entries || []).filter(e => e.savingsGoalId === g.id);
-      const older = all.filter(e => new Date(e.date).getTime() < cutoffMs).reduce((s, e) => s + e.amount, 0);
-      const recent = all.filter(e => new Date(e.date).getTime() >= cutoffMs)
+      const older = all.filter(e => parseLocalDate(e.date).getTime() < cutoffMs).reduce((s, e) => s + e.amount, 0);
+      const recent = all.filter(e => parseLocalDate(e.date).getTime() >= cutoffMs)
         .sort((a, b) => new Date(a.date) - new Date(b.date));
       const totalFromEntries = all.reduce((s, e) => s + e.amount, 0);
       const baseline = (g.saved || 0) - totalFromEntries;
@@ -31,7 +32,7 @@ export function SavingsPage({ data, setData, T, styles }) {
       let running = startValue;
       for (const e of recent) {
         running += e.amount;
-        const d = new Date(e.date);
+        const d = parseLocalDate(e.date);
         points.push({ v: running, label: `${String(d.getDate()).padStart(2, "0")}.${String(d.getMonth() + 1).padStart(2, "0")}.` });
       }
       result[g.id] = points;
@@ -39,23 +40,39 @@ export function SavingsPage({ data, setData, T, styles }) {
     return result;
   }, [data.savingsGoals, data.entries]);
 
-  const openNew = () => { setEditId(null); setForm(emptyForm); setShowForm(true); };
+  const openNew = () => { setEditId(null); setForm(emptyForm); setErrors({}); setShowForm(true); };
   const openEdit = (g) => {
     setEditId(g.id);
     setForm({ name: g.name, target: String(g.target), saved: String(g.saved), emoji: g.emoji || "" });
+    setErrors({});
     setShowForm(true);
   };
-  const closeForm = () => { setShowForm(false); setEditId(null); setForm(emptyForm); };
+  const closeForm = () => { setShowForm(false); setEditId(null); setForm(emptyForm); setErrors({}); };
 
   const saveGoal = () => {
-    if (!form.name || !form.target) return;
+    // `!form.target` prüfte den STRING — "0" ist truthy und rutschte durch.
+    // Ergebnis war 0/0*100 = NaN ("NaN% von 0,00 €", Balkenbreite "NaN%") bzw.
+    // bei saved > 0 Infinity ("100% ✓ Ziel erreicht!").
+    const errs = {};
+    const name = form.name.trim();
+    if (!name) errs.name = "Bitte einen Namen eingeben.";
+    const target = parseFloat(form.target);
+    if (!Number.isFinite(target) || target <= 0) errs.target = "Der Zielbetrag muss größer als 0 sein.";
+    const saved = form.saved === "" ? 0 : parseFloat(form.saved);
+    if (!Number.isFinite(saved) || saved < 0) errs.saved = "Bitte einen gültigen Betrag ab 0 eingeben.";
+    if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+    setErrors({});
+
+    const next = { name, target, saved, emoji: form.emoji };
     if (editId) {
-      setData(prev => ({ ...prev, savingsGoals: prev.savingsGoals.map(g => g.id === editId ? { ...g, name: form.name, target: parseFloat(form.target), saved: parseFloat(form.saved) || 0, emoji: form.emoji } : g) }));
+      setData(prev => ({ ...prev, savingsGoals: prev.savingsGoals.map(g => g.id === editId ? { ...g, ...next } : g) }));
     } else {
-      setData(prev => ({ ...prev, savingsGoals: [...prev.savingsGoals, { id: uid(), name: form.name, target: parseFloat(form.target), saved: parseFloat(form.saved) || 0, emoji: form.emoji }] }));
+      setData(prev => ({ ...prev, savingsGoals: [...prev.savingsGoals, { id: uid(), ...next }] }));
     }
     closeForm();
   };
+
+  const errorStyle = { fontSize: 11, color: T.expense, marginTop: 4, lineHeight: 1.5 };
 
   const deleteGoal = (id) => {
     setData(prev => ({ ...prev, savingsGoals: prev.savingsGoals.filter(g => g.id !== id) }));
@@ -108,10 +125,13 @@ export function SavingsPage({ data, setData, T, styles }) {
             <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} style={inputStyle} placeholder="z.B. Urlaub 2026"/>
           </div>
         </div>
+        {errors.name && <div style={errorStyle}>⚠ {errors.name}</div>}
         <label style={labelStyle}>Zielbetrag (€)</label>
-        <input type="number" value={form.target} onChange={e => setForm(f => ({ ...f, target: e.target.value }))} style={inputStyle} placeholder="5000"/>
+        <input type="number" inputMode="decimal" min="0.01" value={form.target} onChange={e => setForm(f => ({ ...f, target: e.target.value }))} style={inputStyle} placeholder="5000"/>
+        {errors.target && <div style={errorStyle}>⚠ {errors.target}</div>}
         <label style={labelStyle}>Bereits gespart (€)</label>
-        <input type="number" value={form.saved} onChange={e => setForm(f => ({ ...f, saved: e.target.value }))} style={inputStyle} placeholder="0"/>
+        <input type="number" inputMode="decimal" min="0" value={form.saved} onChange={e => setForm(f => ({ ...f, saved: e.target.value }))} style={inputStyle} placeholder="0"/>
+        {errors.saved && <div style={errorStyle}>⚠ {errors.saved}</div>}
         <div style={{ display: "flex", gap: 8, marginTop: 16 }}>
           <button onClick={saveGoal} style={btnPrimary}>{editId ? "Speichern" : "Hinzufügen"}</button>
         </div>
@@ -137,7 +157,8 @@ export function SavingsPage({ data, setData, T, styles }) {
       )}
       {data.savingsGoals.length === 0 && !showForm && <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Noch keine Sparziele</div>}
       {data.savingsGoals.map(g => {
-        const pct = Math.min((g.saved / g.target) * 100, 100);
+        // Altdaten können target 0 enthalten — dann wäre der Anteil NaN/Infinity.
+        const pct = g.target > 0 ? Math.min((g.saved / g.target) * 100, 100) : 0;
         const isEditing = editId === g.id && showForm;
         return (
           <SwipeToDelete key={g.id} onDelete={() => deleteGoal(g.id)} T={T}>

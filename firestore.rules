@@ -1,8 +1,11 @@
 rules_version = '2';
 
 // ─── Firestore Security Rules ─────────────────────────────────────────────────
-// Diese Regeln stellen sicher, dass jeder Nutzer NUR seine eigenen Daten
-// lesen und schreiben kann. Nicht authentifizierte Zugriffe sind verboten.
+// Jeder Nutzer darf ausschließlich sein eigenes Budget-Dokument lesen und
+// schreiben. Alles, was hier nicht explizit erlaubt wird, ist automatisch
+// verboten — eine zusätzliche "allow read, write: if false"-Regel wäre wirkungslos,
+// weil mehrere allow-Statements ODER-verknüpft werden und ein Deny daher nie
+// ein Allow überstimmen kann.
 //
 // Deployment:
 //   firebase deploy --only firestore:rules
@@ -11,24 +14,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Standardregel: Alles verbieten (Whitelisting-Prinzip)
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Budget-Daten: Nur der authentifizierte Nutzer darf seine eigenen Daten lesen/schreiben
     match /budgets/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null
+        && request.auth.uid == userId;
 
-      // Zusätzliche Validierung beim Schreiben:
-      // - Das Dokument muss ein "data"-Feld (String) und ein "updatedAt"-Feld enthalten
-      // - Die Datengröße ist auf 1 MB begrenzt (Firebase-Limit: 1 MiB pro Dokument)
+      // Bewusst EIN einziges write-Statement: stünde die Validierung in einem
+      // zweiten allow-Block, würde sie nie greifen (ODER-Semantik).
+      // - Dokument muss "data" (String) und "updatedAt" (String) enthalten
+      // - Größe grob auf 900.000 Zeichen begrenzt. size() zählt Zeichen, das
+      //   Firestore-Limit sind Bytes — diese Regel ist daher nur ein Backstop
+      //   gegen Missbrauch. Die exakte Byte-Prüfung macht der Client
+      //   (DOC_MAX_BYTES in useFirestoreSync.js).
       allow write: if request.auth != null
         && request.auth.uid == userId
         && request.resource.data.keys().hasAll(["data", "updatedAt"])
         && request.resource.data.data is string
         && request.resource.data.updatedAt is string
-        && request.resource.data.data.size() <= 900000; // ~900 KB Sicherheitspuffer
+        && request.resource.data.data.size() <= 900000;
     }
   }
 }
