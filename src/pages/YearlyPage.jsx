@@ -1,4 +1,4 @@
-import { fmt, getToday } from "../utils/helpers.js";
+import { fmt, getToday, parseLocalDate } from "../utils/helpers.js";
 import { Icon } from "../components/Icon.jsx";
 import { BarChart } from "../charts/BarChart.jsx";
 
@@ -11,7 +11,7 @@ export function YearlyPage({
   const yr = viewYear;
   const md = Array.from({ length: 12 }, (_, m) => {
     const me = data.entries.filter(e => {
-      const d = new Date(e.date);
+      const d = parseLocalDate(e.date);
       return d.getMonth() === m && d.getFullYear() === yr;
     });
     return {

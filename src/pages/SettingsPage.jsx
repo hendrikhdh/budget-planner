@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon } from "../components/Icon.jsx";
+import { SyncPill } from "../components/layout/SyncBanner.jsx";
 
 export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syncStatus, userInfo, onLogout }) {
   const { btnPrimary, glassCardStyle } = styles;
@@ -29,10 +30,17 @@ export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syn
     setTimeout(() => setSaved(false), 3000);
   };
 
-  const toggleStyle = (active) => ({
-    position: "relative", display: "inline-flex", width: 44, height: 24, borderRadius: 12,
-    background: active ? T.accent : `${T.textMuted}40`, border: "none", cursor: "pointer",
-    transition: "background .2s", flexShrink: 0, padding: 0
+  // Der sichtbare Schalter bleibt 44x24 — die Trefferfläche wird 44x44.
+  const toggleStyle = {
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+    width: 44, height: 44, minWidth: 44, minHeight: 44,
+    background: "none", border: "none", cursor: "pointer", padding: 0,
+    flexShrink: 0, WebkitTapHighlightColor: "transparent",
+  };
+  const trackStyle = (active) => ({
+    position: "relative", display: "block", width: 44, height: 24, borderRadius: 12,
+    background: active ? T.accent : `${T.textMuted}40`,
+    transition: "background .2s",
   });
   const knobStyle = (active) => ({
     position: "absolute", top: 3, left: active ? 23 : 3, width: 18, height: 18,
@@ -43,26 +51,12 @@ export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syn
   const swSupported = "serviceWorker" in navigator;
   const notifSupported = typeof Notification !== "undefined";
 
-  const syncColor = syncStatus === "synced" ? T.income : syncStatus === "connecting" ? T.warning : T.expense;
-  const syncLabel = syncStatus === "synced" ? "Cloud-Sync aktiv" : syncStatus === "connecting" ? "Verbinde..." : "Offline – Daten lokal gespeichert";
 
   return (
     <div style={{ padding: "0 16px 100px" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginBottom: 20, marginTop: 8, flexWrap: "wrap" }}>
         <div style={{ fontSize: 20, fontWeight: 800, color: T.textPrimary }}>Einstellungen</div>
-        <div style={{
-          display: "inline-flex", alignItems: "center", gap: 8,
-          padding: "8px 14px", minHeight: 36,
-          borderRadius: 999,
-          background: `${syncColor}14`, border: `1px solid ${syncColor}40`,
-        }}>
-          <span style={{
-            width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
-            background: syncColor, boxShadow: `0 0 8px ${syncColor}80`,
-            animation: syncStatus === "connecting" ? "neonPulse 1.5s ease-in-out infinite" : "none"
-          }}/>
-          <span style={{ fontSize: 12, fontWeight: 700, color: syncColor, letterSpacing: 0.2 }}>{syncLabel}</span>
-        </div>
+        <SyncPill T={T} syncStatus={syncStatus}/>
       </div>
       <div style={{ ...glassCardStyle, padding: "20px", marginBottom: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
@@ -74,8 +68,9 @@ export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syn
             <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600 }}>Dark Mode</div>
             <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>{theme === "dark" ? "Dunkles Design aktiv" : "Helles Design aktiv"}</div>
           </div>
-          <button onClick={toggleTheme} style={toggleStyle(theme === "dark")}>
-            <span style={knobStyle(theme === "dark")}/>
+          <button onClick={toggleTheme} style={toggleStyle}
+            role="switch" aria-checked={theme === "dark"} aria-label="Dunkles Erscheinungsbild">
+            <span style={trackStyle(theme === "dark")}><span style={knobStyle(theme === "dark")}/></span>
           </button>
         </div>
       </div>
@@ -95,8 +90,9 @@ export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syn
                 <div style={{ fontSize: 14, color: T.textPrimary, fontWeight: 600 }}>Erinnerung aktivieren</div>
                 <div style={{ fontSize: 12, color: T.textMuted, marginTop: 2 }}>Täglich erinnern, Einnahmen & Ausgaben einzutragen</div>
               </div>
-              <button onClick={() => setReminderEnabled(v => !v)} style={toggleStyle(reminderEnabled)}>
-                <span style={knobStyle(reminderEnabled)}/>
+              <button onClick={() => setReminderEnabled(v => !v)} style={toggleStyle}
+                role="switch" aria-checked={reminderEnabled} aria-label="Tägliche Erinnerung">
+                <span style={trackStyle(reminderEnabled)}><span style={knobStyle(reminderEnabled)}/></span>
               </button>
             </div>
             {reminderEnabled && (
@@ -131,8 +127,10 @@ export function SettingsPage({ data, setData, T, styles, theme, toggleTheme, syn
           <div style={{ fontSize: 13, fontWeight: 600, color: T.textSecondary }}>Hinweis zur Erinnerung</div>
         </div>
         <div style={{ fontSize: 12, color: T.textMuted, lineHeight: 1.6 }}>
-          Die Erinnerung wird als Browser-Benachrichtigung angezeigt. Sie funktioniert solange der Browser geöffnet ist.
-          Für zuverlässige Hintergrund-Benachrichtigungen empfehlen wir, die App zum Home-Bildschirm hinzuzufügen (PWA).
+          Die Erinnerung wird als Browser-Benachrichtigung angezeigt und funktioniert nur, solange die App
+          im Browser geöffnet ist. Wird sie geschlossen, beendet das System auch den Service Worker — die
+          Erinnerung entfällt dann. Zuverlässige Benachrichtigungen im Hintergrund würden einen Push-Dienst
+          erfordern; das Hinzufügen zum Home-Bildschirm allein ändert daran nichts.
         </div>
       </div>
 

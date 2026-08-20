@@ -1,4 +1,4 @@
-import { fmt } from "../utils/helpers.js";
+import { fmt, parseLocalDate } from "../utils/helpers.js";
 import { CAT_COLORS } from "../utils/categories.js";
 
 export const EntryItem = ({ e, onClick, emojiLookup, colorLookup, T }) => {
@@ -26,7 +26,7 @@ export const EntryItem = ({ e, onClick, emojiLookup, colorLookup, T }) => {
               }}>Ziel</span>
             )}
           </div>
-          <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{e.category} · {new Date(e.date).toLocaleDateString("de-DE")}</div>
+          <div style={{ fontSize: 11, color: T.textMuted, marginTop: 2 }}>{e.category} · {parseLocalDate(e.date).toLocaleDateString("de-DE")}</div>
         </div>
       </div>
       <div style={{ fontSize: 15, fontWeight: 700, color: e.type === "income" ? T.income : T.expense }}>

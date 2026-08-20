@@ -1,4 +1,6 @@
-export function AppHeader({ T, isDark, onTitleClick, pulseId = 0 }) {
+import { SyncDot } from "./SyncBanner.jsx";
+
+export function AppHeader({ T, isDark, onTitleClick, pulseId = 0, syncStatus, onStatusClick }) {
   const pulsing = pulseId > 0;
   const animation = pulsing
     ? (isDark ? "brandGlow 1.5s ease-out, neonPulse 3s ease-in-out infinite" : "brandGlow 1.5s ease-out")
@@ -22,6 +24,7 @@ export function AppHeader({ T, isDark, onTitleClick, pulseId = 0 }) {
         <span style={{ color: T.titleGlow1, textShadow: T.titleShadow1 }}>Money</span>{" "}
         <span style={{ color: T.titleGlow2, textShadow: T.titleShadow2 }}>Maker</span>
       </span>
+      {syncStatus && <SyncDot T={T} syncStatus={syncStatus} onClick={onStatusClick}/>}
     </div>
   );
 }

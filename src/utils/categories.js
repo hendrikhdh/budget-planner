@@ -1,3 +1,5 @@
+import { parseLocalDate } from "./helpers.js";
+
 export const CAT_COLORS = [
   { name: "Cyan", hex: "#00f0ff" },
   { name: "Magenta", hex: "#ff00e5" },
@@ -44,7 +46,7 @@ export const sortCategoriesByUsage = (cats, entries, type, days = 30) => {
   const counts = {};
   for (const e of entries || []) {
     if (type && e.type !== type) continue;
-    if (new Date(e.date).getTime() < cutoff) continue;
+    if (parseLocalDate(e.date).getTime() < cutoff) continue;
     counts[e.category] = (counts[e.category] || 0) + 1;
   }
   return [...cats].sort((a, b) => {
@@ -72,3 +74,52 @@ export const createColorLookup = (categories) => (categoryName, type) => {
   const found = cats.find(c => catName(c) === categoryName);
   return found ? catColorVal(found) : CAT_COLORS[0].hex;
 };
+
+// Sammelbecken für Einträge, deren Kategorie gelöscht wurde.
+export const UNASSIGNED = "Nicht zugeordnet";
+
+// Kategorien haben keine Id — entries, recurring und budgets referenzieren sie
+// ausschließlich über den NAMEN. Umbenennen und Löschen müssen diese Referenzen
+// deshalb mitziehen, sonst verlieren Einträge Farbe und Emoji, Budgets zählen
+// ins Leere und wiederkehrende Regeln buchen auf eine Kategorie, die es nicht
+// mehr gibt. Budgets existieren nur für Ausgaben.
+export const renameCategory = (data, type, oldName, nextCat) => {
+  const newName = catName(nextCat);
+  const budgets = { ...(data.budgets || {}) };
+  if (type === "expense" && Object.prototype.hasOwnProperty.call(budgets, oldName)) {
+    budgets[newName] = budgets[oldName];
+    delete budgets[oldName];
+  }
+  return {
+    ...data,
+    categories: {
+      ...data.categories,
+      [type]: (data.categories[type] || []).map(c => catName(c) === oldName ? nextCat : c),
+    },
+    entries: (data.entries || []).map(e => e.type === type && e.category === oldName ? { ...e, category: newName } : e),
+    recurring: (data.recurring || []).map(r => r.type === type && r.category === oldName ? { ...r, category: newName } : r),
+    budgets,
+  };
+};
+
+export const removeCategory = (data, type, name) => {
+  const budgets = { ...(data.budgets || {}) };
+  if (type === "expense") delete budgets[name];
+  return {
+    ...data,
+    categories: {
+      ...data.categories,
+      [type]: (data.categories[type] || []).filter(c => catName(c) !== name),
+    },
+    entries: (data.entries || []).map(e => e.type === type && e.category === name ? { ...e, category: UNASSIGNED } : e),
+    recurring: (data.recurring || []).map(r => r.type === type && r.category === name ? { ...r, category: UNASSIGNED } : r),
+    budgets,
+  };
+};
+
+// Wie viele Datensätze eine Änderung berührt — für die Rückfrage vor dem Löschen.
+export const countCategoryUsage = (data, type, name) => ({
+  entries: (data.entries || []).filter(e => e.type === type && e.category === name).length,
+  recurring: (data.recurring || []).filter(r => r.type === type && r.category === name).length,
+  hasBudget: type === "expense" && (data.budgets || {})[name] !== undefined,
+});

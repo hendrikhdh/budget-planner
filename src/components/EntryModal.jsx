@@ -3,14 +3,14 @@ import { Modal } from "./Modal.jsx";
 import { Icon } from "./Icon.jsx";
 import { ConfirmDialog } from "./layout/ConfirmDialog.jsx";
 import { catName, catEmoji, sortCategoriesByUsage } from "../utils/categories.js";
-import { dateStr, getToday } from "../utils/helpers.js";
+import { dateStr, getToday, clampDay, isValidDateStr } from "../utils/helpers.js";
 
 const SAVINGS_CATEGORY = "Sparziele";
 
 export function EntryModal({ open, onClose, editEntry, onSave, onDelete, categories, entries, savingsGoals, setPage, viewMonth, viewYear, T, styles }) {
   const { inputStyle, selectStyle, labelStyle, btnPrimary, chipStyle } = styles;
   const isEdit = !!editEntry;
-  const emptyForm = () => ({ type: "expense", category: "", savingsGoalId: "", amount: "", description: "", date: dateStr(viewYear, viewMonth, getToday().day) });
+  const emptyForm = () => ({ type: "expense", category: "", savingsGoalId: "", amount: "", description: "", date: dateStr(viewYear, viewMonth, clampDay(viewYear, viewMonth, getToday().day)) });
   const [form, setForm] = useState(emptyForm);
   const [errors, setErrors] = useState({});
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -52,6 +52,7 @@ export function EntryModal({ open, onClose, editEntry, onSave, onDelete, categor
     if (!form.amount || isNaN(amt) || amt <= 0) errs.amount = "Bitte einen gültigen Betrag größer als 0 eingeben.";
     else if (amt > 1_000_000) errs.amount = "Betrag darf 1.000.000 € nicht überschreiten.";
     if (!form.date) errs.date = "Bitte ein Datum auswählen.";
+    else if (!isValidDateStr(form.date)) errs.date = "Bitte ein gültiges Datum auswählen.";
     if (Object.keys(errs).length > 0) { setErrors(errs); return; }
     setErrors({});
     const base = { ...(editEntry || {}), amount: amt, description: form.description, date: form.date };
