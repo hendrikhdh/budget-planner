@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "firebase/auth";
 import { auth, googleProvider } from "../firebase.js";
-import { STORAGE_KEY } from "../utils/storage.js";
+import { STORAGE_KEY, clearCacheKey } from "../utils/storage.js";
 
 export function useAuth() {
   const [userId, setUserId] = useState(null);
@@ -47,6 +47,7 @@ export function useAuth() {
     await signOut(auth);
     // Lokale Daten löschen für Sicherheit auf geteilten Geräten
     if (uid) { try { localStorage.removeItem(STORAGE_KEY + "_" + uid); } catch {} }
+    await clearCacheKey();
     setUserId(null);
     setUserInfo(null);
   };
