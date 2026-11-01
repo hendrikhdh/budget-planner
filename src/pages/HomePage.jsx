@@ -4,6 +4,10 @@ import { Icon } from "../components/Icon.jsx";
 import { MonthNav } from "../components/MonthNav.jsx";
 import { EntryItem } from "../components/EntryItem.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
+import { Fab } from "../components/Fab.jsx";
+import { useIsSplit } from "../components/layout/LayoutContext.js";
+
+const PHONE_RECENT_ENTRY_LIMIT = 5;
 
 export function HomePage({
   data, T, styles, isDark,
@@ -13,6 +17,7 @@ export function HomePage({
   setPage, openNewEntry,
 }) {
   const { btnSecondary, glassCardStyle } = styles;
+  const isSplit = useIsSplit();
 
   const entrySwipeActive = useRef(false);
   const touchStartX = useRef(0);
@@ -150,27 +155,17 @@ export function HomePage({
         </div>
       )}
       {/* Recent Entries */}
-      <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>Letzte Einträge</div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>{isSplit ? "Einträge des Monats" : "Letzte Einträge"}</div>
       {monthEntries.length === 0
         ? <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 24 }}>Keine Einträge in diesem Monat</div>
-        : [...monthEntries].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 5).map(e => (
+        : [...monthEntries].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, isSplit ? undefined : PHONE_RECENT_ENTRY_LIMIT).map(e => (
           <SwipeToDelete key={e.id} onDelete={() => onDeleteEntry(e.id)} T={T} onSwipeActive={() => { entrySwipeActive.current = true; }}>
             <EntryItem e={e} onClick={() => openEdit(e)} emojiLookup={emojiLookup} colorLookup={colorLookup} T={T}/>
           </SwipeToDelete>
         ))}
-      {/* FAB – Neuer Eintrag */}
-      <button onClick={openNewEntry} aria-label="Neuer Eintrag" style={{
-        position: "fixed",
-        bottom: "calc(88px + env(safe-area-inset-bottom))",
-        right: "calc(20px + env(safe-area-inset-right))",
-        width: 60, height: 60,
-        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
-        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff",
-        WebkitTapHighlightColor: "transparent"
-      }}>
-        <Icon name="plus" size={26}/>
-      </button>
+      {/* Im Split-Layout liegt "Neuer Eintrag" in der NavRail; ein FAB hier
+          würde die FABs der Detailseiten verdecken. */}
+      {!isSplit && <Fab T={T} label="Neuer Eintrag" onClick={openNewEntry}/>}
     </div>
   );
 }

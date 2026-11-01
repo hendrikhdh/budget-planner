@@ -3,6 +3,7 @@ import { DonutChart } from "../charts/DonutChart.jsx";
 import { LineChart } from "../charts/LineChart.jsx";
 import { EntryItem } from "../components/EntryItem.jsx";
 import { groupByCategory } from "../lib/dataIO.js";
+import { useIsSplit } from "../components/layout/LayoutContext.js";
 
 export function AnalysisPage({
   type, data, T, styles,
@@ -11,6 +12,7 @@ export function AnalysisPage({
   openEdit, emojiLookup, colorLookup,
 }) {
   const { btnSecondary, glassCardStyle } = styles;
+  const isSplit = useIsSplit();
   const tl = type === "income" ? "Einnahmen" : "Ausgaben";
   const color = type === "income" ? T.income : T.expense;
   const mot = monthEntries.filter(e => e.type === type);
@@ -38,14 +40,17 @@ export function AnalysisPage({
     <div style={{ padding: "0 16px 100px" }}>
       <h2 style={{ color: T.textPrimary, fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{tl}-Analyse</h2>
       <p style={{ color: T.textMuted, fontSize: 13, marginBottom: 16 }}>{monthName(viewMonth, viewYear)}</p>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-        <button onClick={prevMonth} aria-label="Vorheriger Monat" style={{ ...btnSecondary, minHeight: 44, padding: "0 16px", fontSize: 13, fontWeight: 600 }}>← Zurück</button>
-        <button onClick={nextMonth} aria-label="Nächster Monat" style={{ ...btnSecondary, minHeight: 44, padding: "0 16px", fontSize: 13, fontWeight: 600 }}>Weiter →</button>
-        <button onClick={goToday} style={{ ...btnSecondary, minHeight: 44, padding: "0 16px", fontSize: 13, fontWeight: 600 }}>Heute</button>
-      </div>
+      {/* Im Split-Layout steuert die Monatsnavigation der Home-Spalte auch diese Seite. */}
+      {!isSplit && (
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+          <button onClick={prevMonth} aria-label="Vorheriger Monat" style={{ ...btnSecondary, minHeight: 44, padding: "0 16px", fontSize: 13, fontWeight: 600 }}>← Zurück</button>
+          <button onClick={nextMonth} aria-label="Nächster Monat" style={{ ...btnSecondary, minHeight: 44, padding: "0 16px", fontSize: 13, fontWeight: 600 }}>Weiter →</button>
+          <button onClick={goToday} style={{ ...btnSecondary, minHeight: 44, padding: "0 16px", fontSize: 13, fontWeight: 600 }}>Heute</button>
+        </div>
+      )}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginBottom: 24 }}>
         <div style={{ flex: "1 1 200px", display: "flex", justifyContent: "center" }}>
-          <DonutChart data={dd} size={200} T={T}/>
+          <DonutChart data={dd} size={isSplit ? 260 : 200} T={T}/>
         </div>
         <div style={{ flex: "1 1 200px" }}>
           {dd.map((d, i) => (
@@ -64,7 +69,7 @@ export function AnalysisPage({
       </div>
       <div style={{ ...glassCardStyle, padding: "16px 8px", marginBottom: 24 }}>
         <div style={{ fontSize: 13, fontWeight: 700, color: T.textPrimary, marginBottom: 8, paddingLeft: 8 }}>Verlauf (12 Monate)</div>
-        <LineChart points={lp} color={color} height={220} T={T}/>
+        <LineChart points={lp} color={color} height={isSplit ? 340 : 220} T={T}/>
       </div>
       <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 12 }}>Alle {tl} ({monthName(viewMonth, viewYear)})</div>
       {mot.length === 0

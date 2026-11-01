@@ -1,8 +1,10 @@
 import { useEffect, useRef } from "react";
 import { Icon } from "./Icon.jsx";
+import { useIsSplit } from "./layout/LayoutContext.js";
 
 export const Modal = ({ open, onClose, title, children, T }) => {
   const panelRef = useRef(null);
+  const isSplit = useIsSplit();
 
   // Scroll-Lock und Fokus hängen NUR an `open`. Läge `onClose` mit in den
   // Abhängigkeiten, liefe der Effekt bei jedem Render neu — und merkte sich
@@ -26,8 +28,10 @@ export const Modal = ({ open, onClose, title, children, T }) => {
   if (!open) return null;
   return (
     <div style={{
-      position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center",
-      paddingBottom: "calc(72px + env(safe-area-inset-bottom))"
+      position: "fixed", inset: 0, zIndex: 1000, display: "flex", justifyContent: "center",
+      // Bottom-Sheet über der BottomNav; im Split-Layout gibt es keine, dort zentriert.
+      alignItems: isSplit ? "center" : "flex-end",
+      paddingBottom: isSplit ? 0 : "calc(72px + env(safe-area-inset-bottom))"
     }} onClick={onClose}>
       <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(8px)" }}/>
       <div
@@ -38,11 +42,11 @@ export const Modal = ({ open, onClose, title, children, T }) => {
         tabIndex={-1}
         onClick={e => e.stopPropagation()}
         style={{
-          position: "relative", width: "calc(100% - 16px)", maxWidth: 480, maxHeight: "80vh", background: T.modalBg,
+          position: "relative", width: "calc(100% - 16px)", maxWidth: 480, maxHeight: isSplit ? "85dvh" : "80vh", background: T.modalBg,
           backdropFilter: T.glassBlur,
           borderRadius: 20, padding: "20px 20px 24px", overflowY: "auto",
           border: `1px solid ${T.glassBorder}`, boxShadow: T.glassShadow,
-          animation: "slideUp .3s ease", outline: "none"
+          animation: isSplit ? "fadeIn .2s ease" : "slideUp .3s ease", outline: "none"
         }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <h3 style={{ margin: 0, color: T.textPrimary, fontSize: 18, fontWeight: 700 }}>{title}</h3>

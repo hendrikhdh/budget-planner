@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { Icon } from "../components/Icon.jsx";
+import { Fab } from "../components/Fab.jsx";
+import { SplitGrid } from "../components/SplitGrid.jsx";
 import { Modal } from "../components/Modal.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog.jsx";
@@ -156,7 +158,7 @@ export function SavingsPage({ data, setData, T, styles }) {
           onCancel={() => setConfirmDelete(null)}/>
       )}
       {data.savingsGoals.length === 0 && !showForm && <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 32 }}>Noch keine Sparziele</div>}
-      {data.savingsGoals.map(g => {
+      <SplitGrid>{data.savingsGoals.map(g => {
         // Altdaten können target 0 enthalten — dann wäre der Anteil NaN/Infinity.
         const pct = g.target > 0 ? Math.min((g.saved / g.target) * 100, 100) : 0;
         const isEditing = editId === g.id && showForm;
@@ -174,19 +176,8 @@ export function SavingsPage({ data, setData, T, styles }) {
             </div>
           </SwipeToDelete>
         );
-      })}
-      <button onClick={openNew} aria-label="Neues Sparziel" style={{
-        position: "fixed",
-        bottom: "calc(88px + env(safe-area-inset-bottom))",
-        right: "calc(20px + env(safe-area-inset-right))",
-        width: 60, height: 60,
-        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
-        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff",
-        WebkitTapHighlightColor: "transparent"
-      }}>
-        <Icon name="plus" size={26}/>
-      </button>
+      })}</SplitGrid>
+      <Fab T={T} label="Neues Sparziel" onClick={openNew}/>
     </div>
   );
 }

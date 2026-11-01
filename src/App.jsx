@@ -10,6 +10,7 @@ import { useFirestoreSync } from "./hooks/useFirestoreSync.js";
 import { useServiceWorker } from "./hooks/useServiceWorker.js";
 import { useApplyRecurring } from "./hooks/useApplyRecurring.js";
 import { useFormStyles } from "./hooks/useFormStyles.js";
+import { useSplitLayout } from "./hooks/useSplitLayout.js";
 
 import { EntryModal } from "./components/EntryModal.jsx";
 import { MoneyRain } from "./components/effects/MoneyRain.jsx";
@@ -22,6 +23,9 @@ import { LoadingScreen } from "./components/layout/LoadingScreen.jsx";
 import { BackgroundOrbs } from "./components/layout/BackgroundOrbs.jsx";
 import { AppShellStyles } from "./components/layout/AppShellStyles.jsx";
 import { ConfirmDialog, ImportMessageDialog } from "./components/layout/ConfirmDialog.jsx";
+import { LayoutContext } from "./components/layout/LayoutContext.js";
+import { NavRail } from "./components/layout/NavRail.jsx";
+import { SplitShell } from "./components/layout/SplitShell.jsx";
 
 import { HomePage } from "./pages/HomePage.jsx";
 import { AnalysisPage } from "./pages/AnalysisPage.jsx";
@@ -40,6 +44,14 @@ import { WealthPage } from "./pages/WealthPage.jsx";
 // jedem Render neu anmelden.
 const PAGE_IDS = NAV_TABS.flatMap(tab => tab.pages.map(p => p.id));
 
+// Home is permanently visible in the split layout, so the detail column shows
+// this page instead of staying empty while the route is "home".
+const DEFAULT_DETAIL_PAGE = "expense-analysis";
+
+// Text- und Formularseiten würden über die volle Detailbreite unlesbar breit.
+const READABLE_DETAIL_PAGES = new Set(["prediction", "search", "settings", "import-export", "categories"]);
+const READABLE_DETAIL_WIDTH = 760;
+
 // Manifest-Shortcut "Neue Ausgabe" ruft #/home?new=1 auf. Der Wert wird einmal
 // beim Initialisieren gelesen — nicht per setState im Effekt, das wäre ein
 // zusätzlicher Renderdurchlauf.
@@ -56,6 +68,8 @@ export default function BudgetPlanner() {
   useServiceWorker(data && data.settings);
   useApplyRecurring(data, setData);
   const styles = useFormStyles(T, isDark);
+  const isSplit = useSplitLayout();
+  const detailRef = useRef(null);
 
   const [viewMonth, setViewMonth] = useState(getToday().month);
   const [viewYear, setViewYear] = useState(getToday().year);
@@ -147,7 +161,14 @@ export default function BudgetPlanner() {
 
   // Alle Seiten teilen denselben Dokument-Scrollcontainer. Ohne Reset landet
   // man beim Seitenwechsel mitten in der neuen Seite statt an ihrem Anfang.
-  useEffect(() => { window.scrollTo(0, 0); }, [page]);
+  // Im Split-Layout scrollt nur die Detailspalte zurück, Home behält seine Position.
+  useEffect(() => {
+    if (isSplit) {
+      if (detailRef.current) detailRef.current.scrollTo(0, 0);
+    } else {
+      window.scrollTo(0, 0);
+    }
+  }, [page, isSplit]);
 
   // Shortcut-Parameter aus der URL entfernen, damit ein Reload nicht erneut
   // das Eingabeformular öffnet.
@@ -190,14 +211,16 @@ export default function BudgetPlanner() {
   const handleLogout = async () => { await logout(); };
 
   // ─── Routing ──────────────────────────────────────────────
-  const renderPage = () => {
-    switch (page) {
-      case "home":
-        return <HomePage data={data} T={T} styles={styles} isDark={isDark}
-          viewMonth={viewMonth} viewYear={viewYear} prevMonth={prevMonth} nextMonth={nextMonth} goToday={goToday}
-          monthEntries={monthEntries} income={income} expense={expense} balance={balance} balanceColor={balanceColor}
-          openEdit={openEdit} onDeleteEntry={handleDeleteEntry} emojiLookup={emojiLookup} colorLookup={colorLookup}
-          setPage={setPage} openNewEntry={openNewEntry}/>;
+  const renderHome = () => (
+    <HomePage data={data} T={T} styles={styles} isDark={isDark}
+      viewMonth={viewMonth} viewYear={viewYear} prevMonth={prevMonth} nextMonth={nextMonth} goToday={goToday}
+      monthEntries={monthEntries} income={income} expense={expense} balance={balance} balanceColor={balanceColor}
+      openEdit={openEdit} onDeleteEntry={handleDeleteEntry} emojiLookup={emojiLookup} colorLookup={colorLookup}
+      setPage={setPage} openNewEntry={openNewEntry}/>
+  );
+
+  const renderPage = (pageId) => {
+    switch (pageId) {
       case "income-analysis":
         return <AnalysisPage type="income" data={data} T={T} styles={styles}
           viewMonth={viewMonth} viewYear={viewYear} monthEntries={monthEntries}
@@ -224,13 +247,11 @@ export default function BudgetPlanner() {
       case "settings": return <SettingsPage key="settings" data={data} setData={setData} T={T} styles={styles} theme={theme} toggleTheme={toggleTheme} syncStatus={syncStatus} userInfo={userInfo} onLogout={handleLogout}/>;
       case "wealth": return <WealthPage key="wealth" data={data} setData={setData} T={T} styles={styles}/>;
       default:
-        return <HomePage data={data} T={T} styles={styles} isDark={isDark}
-          viewMonth={viewMonth} viewYear={viewYear} prevMonth={prevMonth} nextMonth={nextMonth} goToday={goToday}
-          monthEntries={monthEntries} income={income} expense={expense} balance={balance} balanceColor={balanceColor}
-          openEdit={openEdit} onDeleteEntry={handleDeleteEntry} emojiLookup={emojiLookup} colorLookup={colorLookup}
-          setPage={setPage} openNewEntry={openNewEntry}/>;
+        return renderHome();
     }
   };
+
+  const detailPage = page === "home" ? DEFAULT_DETAIL_PAGE : page;
 
   if (authReady && !userId) {
     return <LoginScreen T={T} isDark={isDark} loginError={loginError} onLogin={login} toggleTheme={toggleTheme}/>;
@@ -240,34 +261,53 @@ export default function BudgetPlanner() {
   }
 
   return (
+    <LayoutContext.Provider value={isSplit}>
     <div style={{
       fontFamily: "'JetBrains Mono', 'SF Mono', 'Fira Code', monospace",
       background: T.bgGradient,
-      minHeight: "100vh",
       color: T.textPrimary,
       position: "relative",
       overflow: "hidden",
-      maxWidth: 520,
       margin: "0 auto",
-      transition: "background .4s ease, color .3s ease"
+      transition: "background .4s ease, color .3s ease",
+      ...(isSplit ? { height: "100dvh" } : { minHeight: "100vh", maxWidth: 520 }),
     }}>
       <AppShellStyles T={T}/>
       <BackgroundOrbs isDark={isDark}/>
 
-      <AppHeader T={T} isDark={isDark} onTitleClick={() => setPage("home")} pulseId={rainKey}
-        syncStatus={syncStatus} onStatusClick={() => setPage("settings")}/>
+      {/* Einziger Slot für beide Shells: die Dialoge darunter behalten ihre
+          Baumposition und bleiben beim Drehen des Geräts geöffnet. */}
+      {isSplit ? (
+        <SplitShell T={T} detailRef={detailRef}
+          rail={<NavRail T={T} isDark={isDark} page={detailPage} pulseId={rainKey} syncStatus={syncStatus}
+            onNavigate={navigate} onHome={() => setPage("home")} onNewEntry={openNewEntry}
+            onStatusClick={() => setPage("settings")}/>}
+          home={renderHome()}
+          detail={<>
+            <SyncBanner T={T} syncStatus={syncStatus}/>
+            <SubNav T={T} page={detailPage} onNavigate={navigate}/>
+            <div style={{ maxWidth: READABLE_DETAIL_PAGES.has(detailPage) ? READABLE_DETAIL_WIDTH : undefined, margin: "0 auto" }}>
+              {renderPage(detailPage)}
+            </div>
+          </>}/>
+      ) : (
+        <>
+          <AppHeader T={T} isDark={isDark} onTitleClick={() => setPage("home")} pulseId={rainKey}
+            syncStatus={syncStatus} onStatusClick={() => setPage("settings")}/>
 
-      <div style={{
-        paddingTop: 69,
-        paddingBottom: "calc(72px + env(safe-area-inset-bottom))",
-        position: "relative", zIndex: 1
-      }}>
-        <SyncBanner T={T} syncStatus={syncStatus}/>
-        <SubNav T={T} page={page} onNavigate={navigate}/>
-        {renderPage()}
-      </div>
+          <div style={{
+            paddingTop: 69,
+            paddingBottom: "calc(72px + env(safe-area-inset-bottom))",
+            position: "relative", zIndex: 1
+          }}>
+            <SyncBanner T={T} syncStatus={syncStatus}/>
+            <SubNav T={T} page={page} onNavigate={navigate}/>
+            {renderPage(page)}
+          </div>
 
-      <BottomNav T={T} isDark={isDark} page={page} onNavigate={navigate}/>
+          <BottomNav T={T} isDark={isDark} page={page} onNavigate={navigate}/>
+        </>
+      )}
 
       <MoneyRain triggerId={rainKey}/>
 
@@ -290,5 +330,6 @@ export default function BudgetPlanner() {
           onCancel={() => setConfirmReset(false)}/>
       )}
     </div>
+    </LayoutContext.Provider>
   );
 }

@@ -1,10 +1,14 @@
-export const BarChart = ({ data, height = 220, T }) => {
+const BAR_WIDTH_RATIO = 0.03;
+
+// The SVG scales with "meet", so the viewBox ratio limits the rendered width:
+// wide containers need a larger viewWidth to fill the available space.
+export const BarChart = ({ data, height = 220, viewWidth = 400, T }) => {
   const maxV = Math.max(...data.map(d => Math.max(d.income, d.expense)), 1);
   return (
     <div style={{ width: "100%", overflowX: "auto" }}>
-      <svg viewBox={`0 0 400 ${height + 30}`} style={{ width: "100%", minWidth: 350, height: height + 30 }}>
+      <svg viewBox={`0 0 ${viewWidth} ${height + 30}`} style={{ width: "100%", minWidth: 350, height: height + 30 }}>
         {data.map((d, i) => {
-          const bw = 12, gap = 400 / 12, x = gap * i + gap / 2 - bw;
+          const bw = viewWidth * BAR_WIDTH_RATIO, gap = viewWidth / 12, x = gap * i + gap / 2 - bw;
           const hI = (d.income / maxV) * height, hE = (d.expense / maxV) * height;
           return (
             <g key={i}>

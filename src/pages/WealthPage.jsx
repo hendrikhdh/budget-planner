@@ -1,5 +1,8 @@
 import { useState, useMemo } from "react";
 import { Icon } from "../components/Icon.jsx";
+import { Fab } from "../components/Fab.jsx";
+import { SplitGrid } from "../components/SplitGrid.jsx";
+import { useIsSplit } from "../components/layout/LayoutContext.js";
 import { Modal } from "../components/Modal.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog.jsx";
@@ -12,6 +15,7 @@ import {
 const signColor = (v, T) => v > 0 ? T.income : v < 0 ? T.expense : T.textPrimary;
 
 export function WealthPage({ data, setData, T, styles }) {
+  const isSplit = useIsSplit();
   const { inputStyle, labelStyle, btnPrimary, glassCardStyle } = styles;
   const assets = data.assets || [];
   const [showForm, setShowForm] = useState(false);
@@ -116,14 +120,14 @@ export function WealthPage({ data, setData, T, styles }) {
 
       {totalSeries.length >= 2 && (
         <div style={{ ...glassCardStyle, padding: "10px 6px 4px", marginBottom: 20 }}>
-          <LineChart points={totalSeries} color={T.accent} height={160} T={T}/>
+          <LineChart points={totalSeries} color={T.accent} height={isSplit ? 300 : 160} T={T}/>
         </div>
       )}
 
       <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, marginBottom: 10 }}>Vermögensposten</div>
       {assets.length === 0
         ? <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 20 }}>Noch keine Posten — tippe auf + um z.B. Aktien oder Tagesgeld hinzuzufügen</div>
-        : assets.map(a => (
+        : <SplitGrid>{assets.map(a => (
           <SwipeToDelete key={a.id} onDelete={() => deleteAsset(a.id)} T={T}>
             <div onClick={() => openEdit(a)} style={{
               background: T.glassCard, backdropFilter: T.glassBlur, borderRadius: 12,
@@ -137,12 +141,12 @@ export function WealthPage({ data, setData, T, styles }) {
               <span style={{ fontSize: 15, fontWeight: 700, color: signColor(a.value || 0, T) }}>{fmt(a.value || 0)}</span>
             </div>
           </SwipeToDelete>
-        ))}
+        ))}</SplitGrid>}
 
       <div style={{ fontSize: 14, fontWeight: 700, color: T.textPrimary, margin: "20px 0 10px" }}>Monatsbilanzen</div>
       {monthlyBalances.length === 0
         ? <div style={{ color: T.textMuted, fontSize: 13, textAlign: "center", padding: 20 }}>Noch keine Einträge erfasst</div>
-        : monthlyBalances.map(m => {
+        : <SplitGrid>{monthlyBalances.map(m => {
           const bColor = signColor(m.balance, T);
           return (
             <div key={m.key} style={{ ...glassCardStyle, padding: "12px 16px", marginBottom: 8, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -165,7 +169,7 @@ export function WealthPage({ data, setData, T, styles }) {
               <span style={{ fontSize: 15, fontWeight: 700, color: bColor }}>{fmt(m.balance)}</span>
             </div>
           );
-        })}
+        })}</SplitGrid>}
 
       <Modal open={showHistory} onClose={() => setShowHistory(false)} title="Posten-Historie" T={T}>
         {assets.length === 0 ? (
@@ -228,18 +232,7 @@ export function WealthPage({ data, setData, T, styles }) {
           onCancel={() => setConfirmDelete(null)}/>
       )}
 
-      <button onClick={openNew} aria-label="Neuer Posten" style={{
-        position: "fixed",
-        bottom: "calc(88px + env(safe-area-inset-bottom))",
-        right: "calc(20px + env(safe-area-inset-right))",
-        width: 60, height: 60,
-        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
-        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff",
-        WebkitTapHighlightColor: "transparent"
-      }}>
-        <Icon name="plus" size={26}/>
-      </button>
+      <Fab T={T} label="Neuer Posten" onClick={openNew}/>
     </div>
   );
 }

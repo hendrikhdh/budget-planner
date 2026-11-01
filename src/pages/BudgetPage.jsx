@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Icon } from "../components/Icon.jsx";
+import { Fab } from "../components/Fab.jsx";
+import { SplitGrid } from "../components/SplitGrid.jsx";
 import { Modal } from "../components/Modal.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog.jsx";
@@ -53,7 +55,7 @@ export function BudgetPage({ data, setData, monthEntries, T, styles }) {
           {availableCats.length === 0 ? "Erstelle zuerst Ausgaben-Kategorien" : "Noch keine Budgets gesetzt – tippe auf + um zu beginnen"}
         </div>
       )}
-      {catsWithBudget.map(({ cat, limit, spent, pct, remaining }) => {
+      <SplitGrid>{catsWithBudget.map(({ cat, limit, spent, pct, remaining }) => {
         const overBudget = remaining < 0;
         const warn = pct >= 80 && pct < 100;
         const barColor = overBudget ? T.expense : warn ? T.warning : T.income;
@@ -77,7 +79,7 @@ export function BudgetPage({ data, setData, monthEntries, T, styles }) {
             </div>
           </SwipeToDelete>
         );
-      })}
+      })}</SplitGrid>
 
       <Modal open={!!editCat} onClose={closeEdit} title="Budget bearbeiten" T={T}>
         <div style={{ fontSize: 13, color: T.textMuted, marginBottom: 4 }}>Kategorie</div>
@@ -127,18 +129,7 @@ export function BudgetPage({ data, setData, monthEntries, T, styles }) {
         )}
       </Modal>
 
-      <button onClick={() => setShowForm(true)} aria-label="Neues Budget" style={{
-        position: "fixed",
-        bottom: "calc(88px + env(safe-area-inset-bottom))",
-        right: "calc(20px + env(safe-area-inset-right))",
-        width: 60, height: 60,
-        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
-        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff",
-        WebkitTapHighlightColor: "transparent"
-      }}>
-        <Icon name="plus" size={26}/>
-      </button>
+      <Fab T={T} label="Neues Budget" onClick={() => setShowForm(true)}/>
     </div>
   );
 }

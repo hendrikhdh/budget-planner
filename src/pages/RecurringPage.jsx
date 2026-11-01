@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Icon } from "../components/Icon.jsx";
+import { Fab } from "../components/Fab.jsx";
+import { SplitGrid } from "../components/SplitGrid.jsx";
 import { Modal } from "../components/Modal.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog.jsx";
@@ -169,7 +171,7 @@ export function RecurringPage({ data, setData, T, styles }) {
           onCancel={() => { if (pendingDelete.reset) pendingDelete.reset(); setPendingDelete(null); }}/>
       )}
 
-      {[...data.recurring].sort((a, b) => {
+      <SplitGrid>{[...data.recurring].sort((a, b) => {
         if (a.type !== b.type) return a.type === "income" ? -1 : 1;
         return b.amount - a.amount;
       }).map(r => {
@@ -188,19 +190,8 @@ export function RecurringPage({ data, setData, T, styles }) {
             </div>
           </SwipeToDelete>
         );
-      })}
-      <button onClick={openNew} aria-label="Neuer wiederkehrender Eintrag" style={{
-        position: "fixed",
-        bottom: "calc(88px + env(safe-area-inset-bottom))",
-        right: "calc(20px + env(safe-area-inset-right))",
-        width: 60, height: 60,
-        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
-        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff",
-        WebkitTapHighlightColor: "transparent"
-      }}>
-        <Icon name="plus" size={26}/>
-      </button>
+      })}</SplitGrid>
+      <Fab T={T} label="Neuer wiederkehrender Eintrag" onClick={openNew}/>
     </div>
   );
 }
