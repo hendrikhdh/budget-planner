@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Icon } from "../components/Icon.jsx";
+import { Fab } from "../components/Fab.jsx";
+import { Modal } from "../components/Modal.jsx";
 import { SwipeToDelete } from "../components/SwipeToDelete.jsx";
 import { ConfirmDialog } from "../components/layout/ConfirmDialog.jsx";
 import {
@@ -142,42 +144,28 @@ export function CategoriesPage({ data, setData, T, styles }) {
         <button onClick={() => { setCatType("expense"); setEditName(null); setEditError(null); }} style={chipStyle(catType === "expense")}>Ausgaben</button>
         <button onClick={() => { setCatType("income"); setEditName(null); setEditError(null); }} style={chipStyle(catType === "income")}>Einnahmen</button>
       </div>
-      {showAddForm && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 1000, display: "flex", alignItems: "flex-end", justifyContent: "center",
-          paddingBottom: "calc(72px + env(safe-area-inset-bottom))"
-        }} onClick={() => setShowAddForm(false)}>
-          <div style={{ position: "absolute", inset: 0, background: T.modalOverlay, backdropFilter: "blur(6px)" }}/>
-          <div onClick={e => e.stopPropagation()} style={{
-            position: "relative", width: "calc(100% - 16px)", maxWidth: 520,
-            background: T.modalBg, backdropFilter: T.glassBlur,
-            borderRadius: 20, padding: "24px 20px 24px",
-            border: `1px solid ${T.glassBorder}`, boxShadow: T.glassShadow, animation: "slideUp .3s ease"
-          }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: T.textPrimary, marginBottom: 14 }}>Neue Kategorie</div>
-            <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 6 }}>Verfügbar für</div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
-              <button onClick={() => setNewScope("expense")} style={chipStyle(newScope === "expense")}>Ausgabe</button>
-              <button onClick={() => setNewScope("income")} style={chipStyle(newScope === "income")}>Einnahme</button>
-              <button onClick={() => setNewScope("both")} style={chipStyle(newScope === "both")}>Beide</button>
-            </div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
-              <input value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder="😀" style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 20, padding: "6px" }}/>
-              <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && addCat()) setShowAddForm(false); }} placeholder="Neue Kategorie..." style={{ ...inputStyle, flex: 1 }}/>
-            </div>
-            <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 8 }}>Farbe wählen</div>
-              <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} style={{
-                width: "100%", height: 40, border: `1px solid ${T.inputBorder}`, borderRadius: 10,
-                background: T.inputBg, cursor: "pointer", padding: 2, display: "block", marginBottom: 10
-              }}/>
-              <ColorDots selected={newColor} onSelect={setNewColor} T={T}/>
-            </div>
-            {addError && <div style={errorStyle}>⚠ {addError}</div>}
-            <button onClick={() => { if (addCat()) setShowAddForm(false); }} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Hinzufügen</button>
-          </div>
+      <Modal open={showAddForm} onClose={() => setShowAddForm(false)} title="Neue Kategorie" T={T}>
+        <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 6 }}>Verfügbar für</div>
+        <div style={{ display: "flex", gap: 6, marginBottom: 12 }}>
+          <button onClick={() => setNewScope("expense")} style={chipStyle(newScope === "expense")}>Ausgabe</button>
+          <button onClick={() => setNewScope("income")} style={chipStyle(newScope === "income")}>Einnahme</button>
+          <button onClick={() => setNewScope("both")} style={chipStyle(newScope === "both")}>Beide</button>
         </div>
-      )}
+        <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+          <input value={newEmoji} onChange={e => setNewEmoji(e.target.value)} placeholder="😀" style={{ ...inputStyle, width: 52, textAlign: "center", fontSize: 20, padding: "6px" }}/>
+          <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && addCat()) setShowAddForm(false); }} placeholder="Neue Kategorie..." style={{ ...inputStyle, flex: 1 }}/>
+        </div>
+        <div style={{ marginBottom: 14 }}>
+          <div style={{ fontSize: 11, color: T.textMuted, marginBottom: 8 }}>Farbe wählen</div>
+          <input type="color" value={newColor} onChange={e => setNewColor(e.target.value)} style={{
+            width: "100%", height: 40, border: `1px solid ${T.inputBorder}`, borderRadius: 10,
+            background: T.inputBg, cursor: "pointer", padding: 2, display: "block", marginBottom: 10
+          }}/>
+          <ColorDots selected={newColor} onSelect={setNewColor} T={T}/>
+        </div>
+        {addError && <div style={errorStyle}>⚠ {addError}</div>}
+        <button onClick={() => { if (addCat()) setShowAddForm(false); }} style={{ ...btnPrimary, padding: "10px 16px", fontSize: 13 }}>Hinzufügen</button>
+      </Modal>
       {cats.map((cat, i) => {
         const isEditing = editName === catName(cat);
         return (
@@ -231,18 +219,7 @@ export function CategoriesPage({ data, setData, T, styles }) {
           </SwipeToDelete>
         );
       })}
-      <button onClick={openAddForm} aria-label="Neue Kategorie" style={{
-        position: "fixed",
-        bottom: "calc(88px + env(safe-area-inset-bottom))",
-        right: "calc(20px + env(safe-area-inset-right))",
-        width: 60, height: 60,
-        borderRadius: "50%", background: `linear-gradient(135deg, ${T.accent}, ${T.accentPink})`,
-        border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center",
-        boxShadow: `0 4px 20px ${T.accent}50`, zIndex: 200, color: "#fff",
-        WebkitTapHighlightColor: "transparent"
-      }}>
-        <Icon name="plus" size={26}/>
-      </button>
+      <Fab T={T} label="Neue Kategorie" onClick={openAddForm}/>
 
       {pendingDelete && (
         <ConfirmDialog T={T} styles={styles} danger

@@ -1,10 +1,15 @@
 import { useEffect } from "react";
+import { useIsSplit } from "./layout/LayoutContext.js";
+
+const PHONE_BOTTOM_OFFSET = 84;
+const SPLIT_BOTTOM_OFFSET = 24;
 
 // Kurzlebige Leiste über der BottomNav, die eine Löschung zurücknehmbar macht.
 // Ersetzt den Bestätigungsdialog: der Wisch bleibt schnell, bleibt aber
 // umkehrbar. `token` wechselt bei jeder neuen Löschung und startet den
 // Countdown neu.
 export function UndoSnackbar({ T, token, message, onUndo, onDismiss, duration = 5000 }) {
+  const isSplit = useIsSplit();
   useEffect(() => {
     if (!token) return undefined;
     const timer = setTimeout(onDismiss, duration);
@@ -16,7 +21,7 @@ export function UndoSnackbar({ T, token, message, onUndo, onDismiss, duration = 
   return (
     <div role="status" aria-live="polite" style={{
       position: "fixed", zIndex: 300,
-      bottom: "calc(84px + env(safe-area-inset-bottom))",
+      bottom: `calc(${isSplit ? SPLIT_BOTTOM_OFFSET : PHONE_BOTTOM_OFFSET}px + env(safe-area-inset-bottom))`,
       left: "50%", transform: "translateX(-50%)",
       width: "calc(100% - 32px)", maxWidth: 488,
       background: T.glassCardOpaque || T.modalBg,

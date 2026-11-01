@@ -1,6 +1,9 @@
 import { fmt, getToday, parseLocalDate } from "../utils/helpers.js";
 import { Icon } from "../components/Icon.jsx";
 import { BarChart } from "../charts/BarChart.jsx";
+import { useIsSplit } from "../components/layout/LayoutContext.js";
+
+const SPLIT_CHART = { height: 300, viewWidth: 800 };
 
 export function YearlyPage({
   data, T, styles,
@@ -8,6 +11,7 @@ export function YearlyPage({
   balanceColor,
 }) {
   const { btnSecondary, glassCardStyle } = styles;
+  const isSplit = useIsSplit();
   const yr = viewYear;
   const md = Array.from({ length: 12 }, (_, m) => {
     const me = data.entries.filter(e => {
@@ -50,7 +54,7 @@ export function YearlyPage({
           </div>
         ))}
       </div>
-      <div style={{ ...glassCardStyle, padding: 16, marginBottom: 20 }}><BarChart data={md} T={T}/></div>
+      <div style={{ ...glassCardStyle, padding: 16, marginBottom: 20 }}><BarChart data={md} T={T} {...(isSplit ? SPLIT_CHART : {})}/></div>
       <div style={{ overflowX: "auto" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
           <thead>
